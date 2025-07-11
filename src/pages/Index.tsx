@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,25 +7,26 @@ import { Label } from "@/components/ui/label";
 import { Gamepad2, Users, Smartphone, Trophy } from "lucide-react";
 
 const Index = () => {
+  const navigate = useNavigate();
   const [gameMode, setGameMode] = useState<'menu' | 'join' | 'create'>('menu');
   const [roomCode, setRoomCode] = useState('');
   const [playerName, setPlayerName] = useState('');
 
   const handleStartLocalGame = () => {
     // Start a local game (pass phone around)
-    window.location.hash = '/game?mode=local';
+    navigate('/game?mode=local');
   };
 
   const handleCreateRoom = () => {
     if (!playerName.trim()) return;
     // Generate room code and redirect to game
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    window.location.hash = `/game?mode=online&room=${code}&player=${encodeURIComponent(playerName)}`;
+    navigate(`/game?mode=online&room=${code}&player=${encodeURIComponent(playerName)}`);
   };
 
   const handleJoinRoom = () => {
     if (!playerName.trim() || !roomCode.trim()) return;
-    window.location.hash = `/game?mode=online&room=${roomCode.toUpperCase()}&player=${encodeURIComponent(playerName)}`;
+    navigate(`/game?mode=online&room=${roomCode.toUpperCase()}&player=${encodeURIComponent(playerName)}`);
   };
 
   return (

@@ -9,9 +9,8 @@ const Game = () => {
   }>({});
 
   useEffect(() => {
-    // Parse URL parameters from hash
-    const hash = window.location.hash;
-    const urlParams = new URLSearchParams(hash.split('?')[1] || '');
+    // Parse URL parameters from search
+    const urlParams = new URLSearchParams(window.location.search);
     
     setGameParams({
       mode: urlParams.get('mode') as 'local' | 'online' || 'local',
