@@ -1,0 +1,410 @@
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, Timer, Users, Home, Zap, Target } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+interface Player {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+interface GameState {
+  phase: 'setup' | 'dare' | 'odds' | 'countdown' | 'reveal' | 'result';
+  challenger?: Player;
+  target?: Player;
+  dare: string;
+  odds: number;
+  challengerNumber?: number;
+  targetNumber?: number;
+  countdownTimer: number;
+}
+
+interface GameRoomProps {
+  mode: 'local' | 'online';
+  roomCode?: string;
+  playerName?: string;
+}
+
+const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
+  const { toast } = useToast();
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
+  const [gameState, setGameState] = useState<GameState>({
+    phase: 'setup',
+    dare: '',
+    odds: 10,
+    countdownTimer: 3
+  });
+  const [dareInput, setDareInput] = useState('');
+  const [selectedOdds, setSelectedOdds] = useState(10);
+  const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
+
+  // Initialize game based on mode
+  useEffect(() => {
+    if (mode === 'local') {
+      // Local game setup
+      setPlayers([
+        { id: '1', name: 'Player 1', isActive: true },
+        { id: '2', name: 'Player 2', isActive: false }
+      ]);
+      setCurrentPlayer({ id: '1', name: 'Player 1', isActive: true });
+    } else if (mode === 'online' && playerName) {
+      // Online game setup
+      setPlayers([{ id: 'me', name: playerName, isActive: true }]);
+      setCurrentPlayer({ id: 'me', name: playerName, isActive: true });
+      
+      toast({
+        title: "Room Created!",
+        description: `Share code: ${roomCode}`,
+      });
+    }
+  }, [mode, roomCode, playerName, toast]);
+
+  const startNewRound = () => {
+    setGameState({
+      phase: 'dare',
+      dare: '',
+      odds: 10,
+      countdownTimer: 3
+    });
+    setDareInput('');
+    setSelectedOdds(10);
+    setSelectedNumber(null);
+  };
+
+  const submitDare = () => {
+    if (!dareInput.trim()) return;
+    
+    setGameState(prev => ({
+      ...prev,
+      phase: 'odds',
+      dare: dareInput,
+      challenger: players[0],
+      target: players[1]
+    }));
+  };
+
+  const submitOdds = () => {
+    setGameState(prev => ({
+      ...prev,
+      phase: 'countdown',
+      odds: selectedOdds
+    }));
+    
+    // Start countdown
+    startCountdown();
+  };
+
+  const startCountdown = () => {
+    let timer = 3;
+    setGameState(prev => ({ ...prev, countdownTimer: timer }));
+    
+    const interval = setInterval(() => {
+      timer--;
+      setGameState(prev => ({ ...prev, countdownTimer: timer }));
+      
+      if (timer <= 0) {
+        clearInterval(interval);
+        setGameState(prev => ({ ...prev, phase: 'reveal' }));
+      }
+    }, 1000);
+  };
+
+  const submitNumber = () => {
+    if (selectedNumber === null) return;
+    
+    // Simulate both players picking numbers (for demo)
+    const challengerNum = Math.floor(Math.random() * selectedOdds) + 1;
+    const targetNum = selectedNumber;
+    
+    setGameState(prev => ({
+      ...prev,
+      phase: 'result',
+      challengerNumber: challengerNum,
+      targetNumber: targetNum
+    }));
+  };
+
+  const generateNumberGrid = (maxNum: number) => {
+    return Array.from({ length: maxNum }, (_, i) => i + 1);
+  };
+
+  const goHome = () => {
+    window.location.hash = '/';
+  };
+
+  const isMatch = gameState.challengerNumber === gameState.targetNumber;
+
+  return (
+    <div className="min-h-screen bg-gradient-bg p-4">
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={goHome}>
+              <Home className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-party bg-clip-text text-transparent">
+                What Are The Odds?
+              </h1>
+              {mode === 'online' && roomCode && (
+                <Badge variant="secondary" className="mt-1">
+                  Room: {roomCode}
+                </Badge>
+              )}
+            </div>
+          </div>
+          
+          {/* Players */}
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              {players.length} player{players.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+        </div>
+
+        {/* Game Area */}
+        <div className="space-y-6">
+          {/* Setup Phase */}
+          {gameState.phase === 'setup' && (
+            <Card className="bg-gradient-card shadow-card animate-bounce-in">
+              <CardHeader className="text-center">
+                <CardTitle className="flex items-center justify-center gap-2">
+                  <Zap className="w-5 h-5 text-primary" />
+                  Ready to Play?
+                </CardTitle>
+                <CardDescription>
+                  Let's start a new round of "What Are The Odds?"
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button 
+                  variant="party" 
+                  size="xl" 
+                  className="w-full"
+                  onClick={startNewRound}
+                >
+                  Start New Round
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Dare Phase */}
+          {gameState.phase === 'dare' && (
+            <Card className="bg-gradient-card shadow-card animate-bounce-in">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-game-dare" />
+                  Create a Dare
+                </CardTitle>
+                <CardDescription>
+                  Challenge someone to do something fun or daring!
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="dare">What's the dare?</Label>
+                  <Textarea
+                    id="dare"
+                    placeholder="e.g., Text your crush 'What's up?' right now"
+                    value={dareInput}
+                    onChange={(e) => setDareInput(e.target.value)}
+                    className="min-h-[100px]"
+                  />
+                </div>
+                <Button 
+                  variant="dare" 
+                  size="lg"
+                  className="w-full"
+                  onClick={submitDare}
+                  disabled={!dareInput.trim()}
+                >
+                  Submit Dare
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Odds Phase */}
+          {gameState.phase === 'odds' && (
+            <Card className="bg-gradient-card shadow-card animate-bounce-in">
+              <CardHeader>
+                <CardTitle>Set Your Odds</CardTitle>
+                <CardDescription>
+                  How likely are you to do this dare?
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Display the dare */}
+                <div className="p-4 bg-game-bg rounded-lg border border-primary/20">
+                  <h3 className="font-semibold mb-2">The Dare:</h3>
+                  <p className="text-foreground">{gameState.dare}</p>
+                </div>
+
+                {/* Odds selector */}
+                <div className="space-y-4">
+                  <Label>Choose your odds (1 in ...):</Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[2, 3, 5, 10, 15, 20].map((odds) => (
+                      <Button
+                        key={odds}
+                        variant={selectedOdds === odds ? "default" : "outline"}
+                        size="lg"
+                        onClick={() => setSelectedOdds(odds)}
+                        className="h-16"
+                      >
+                        1 in {odds}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="custom-odds" className="whitespace-nowrap">Custom:</Label>
+                    <Input
+                      id="custom-odds"
+                      type="number"
+                      min="2"
+                      max="100"
+                      value={selectedOdds}
+                      onChange={(e) => setSelectedOdds(Math.max(2, parseInt(e.target.value) || 2))}
+                      className="w-20"
+                    />
+                  </div>
+                </div>
+
+                <Button 
+                  variant="secondary" 
+                  size="lg"
+                  className="w-full"
+                  onClick={submitOdds}
+                >
+                  Lock in Odds: 1 in {selectedOdds}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Countdown Phase */}
+          {gameState.phase === 'countdown' && (
+            <Card className="bg-gradient-card shadow-card animate-bounce-in text-center">
+              <CardContent className="pt-8 pb-8">
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold">Get Ready!</h2>
+                  <p className="text-muted-foreground">
+                    Both players pick a number between 1 and {gameState.odds}
+                  </p>
+                  <div className="text-8xl font-bold text-primary animate-bounce-in">
+                    {gameState.countdownTimer}
+                  </div>
+                  <p className="text-lg">
+                    If you pick the same number, the dare happens!
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Reveal Phase */}
+          {gameState.phase === 'reveal' && (
+            <Card className="bg-gradient-card shadow-card animate-bounce-in">
+              <CardHeader>
+                <CardTitle className="text-center">Pick Your Number!</CardTitle>
+                <CardDescription className="text-center">
+                  Choose a number between 1 and {gameState.odds}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-5 gap-3 max-w-md mx-auto">
+                  {generateNumberGrid(Math.min(gameState.odds, 20)).map((num) => (
+                    <Button
+                      key={num}
+                      variant={selectedNumber === num ? "default" : "number"}
+                      size="number"
+                      onClick={() => setSelectedNumber(num)}
+                      className="aspect-square"
+                    >
+                      {num}
+                    </Button>
+                  ))}
+                </div>
+
+                {gameState.odds > 20 && (
+                  <div className="flex items-center gap-2 justify-center">
+                    <Label>Or enter a number:</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max={gameState.odds}
+                      value={selectedNumber || ''}
+                      onChange={(e) => setSelectedNumber(parseInt(e.target.value) || null)}
+                      className="w-20 text-center"
+                    />
+                  </div>
+                )}
+
+                <Button 
+                  variant="default" 
+                  size="lg"
+                  className="w-full"
+                  onClick={submitNumber}
+                  disabled={selectedNumber === null}
+                >
+                  Lock in Number: {selectedNumber}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Result Phase */}
+          {gameState.phase === 'result' && (
+            <Card className={`shadow-card animate-bounce-in ${isMatch ? 'bg-gradient-dare' : 'bg-gradient-card'}`}>
+              <CardContent className="pt-8 pb-8 text-center">
+                <div className="space-y-6">
+                  <div className="text-6xl">
+                    {isMatch ? '🎯' : '😅'}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h2 className={`text-3xl font-bold ${isMatch ? 'text-white' : 'text-foreground'}`}>
+                      {isMatch ? 'IT\'S A MATCH!' : 'Safe This Time!'}
+                    </h2>
+                    <p className={`text-lg ${isMatch ? 'text-white/90' : 'text-muted-foreground'}`}>
+                      Challenger picked {gameState.challengerNumber}, Target picked {gameState.targetNumber}
+                    </p>
+                  </div>
+
+                  {isMatch && (
+                    <div className={`p-4 rounded-lg bg-white/10 border border-white/20`}>
+                      <h3 className="font-semibold mb-2 text-white">Time to do the dare:</h3>
+                      <p className="text-white/90">{gameState.dare}</p>
+                    </div>
+                  )}
+
+                  <Button 
+                    variant={isMatch ? "secondary" : "party"}
+                    size="lg"
+                    className="w-full"
+                    onClick={startNewRound}
+                  >
+                    Play Again
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default GameRoom;
