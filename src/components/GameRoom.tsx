@@ -16,7 +16,7 @@ interface Player {
 }
 
 interface GameState {
-  phase: 'setup' | 'dare' | 'odds' | 'countdown' | 'reveal' | 'result';
+  phase: 'setup' | 'dare' | 'pass-for-odds' | 'odds' | 'pass-for-challenger-number' | 'challenger-number' | 'pass-for-target-number' | 'target-number' | 'final-countdown' | 'result';
   challenger?: Player;
   target?: Player;
   dare: string;
@@ -84,7 +84,7 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
     
     setGameState(prev => ({
       ...prev,
-      phase: 'odds',
+      phase: mode === 'local' ? 'pass-for-odds' : 'odds',
       dare: dareInput,
       challenger: players[0],
       target: players[1]
@@ -94,12 +94,13 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
   const submitOdds = () => {
     setGameState(prev => ({
       ...prev,
-      phase: 'countdown',
+      phase: mode === 'local' ? 'pass-for-challenger-number' : 'final-countdown',
       odds: selectedOdds
     }));
     
-    // Start countdown
-    startCountdown();
+    if (mode !== 'local') {
+      startCountdown();
+    }
   };
 
   const startCountdown = () => {
@@ -112,15 +113,37 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
       
       if (timer <= 0) {
         clearInterval(interval);
-        setGameState(prev => ({ ...prev, phase: 'reveal' }));
+        setGameState(prev => ({ ...prev, phase: 'result' }));
       }
     }, 1000);
+  };
+
+  const submitChallengerNumber = () => {
+    if (selectedNumber === null) return;
+    
+    setGameState(prev => ({
+      ...prev,
+      phase: 'pass-for-target-number',
+      challengerNumber: selectedNumber
+    }));
+    setSelectedNumber(null);
+  };
+
+  const submitTargetNumber = () => {
+    if (selectedNumber === null) return;
+    
+    setGameState(prev => ({
+      ...prev,
+      phase: 'final-countdown',
+      targetNumber: selectedNumber
+    }));
+    startCountdown();
   };
 
   const submitNumber = () => {
     if (selectedNumber === null) return;
     
-    // Simulate both players picking numbers (for demo)
+    // For online mode - simulate both players picking numbers
     const challengerNum = Math.floor(Math.random() * selectedOdds) + 1;
     const targetNum = selectedNumber;
     
@@ -137,7 +160,7 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
   };
 
   const goHome = () => {
-    window.location.hash = '/';
+    window.location.href = '/';
   };
 
   const isMatch = gameState.challengerNumber === gameState.targetNumber;
@@ -235,13 +258,39 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
             </Card>
           )}
 
+          {/* Pass Phone for Odds */}
+          {gameState.phase === 'pass-for-odds' && (
+            <Card className="bg-gradient-card shadow-card animate-bounce-in">
+              <CardHeader className="text-center">
+                <CardTitle className="text-2xl">📱 Pass the Phone!</CardTitle>
+                <CardDescription>
+                  Give the phone to <strong>{gameState.target?.name}</strong> to set their odds
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="text-center">
+                <div className="p-4 bg-game-bg rounded-lg border border-primary/20 mb-6">
+                  <h3 className="font-semibold mb-2">The Dare:</h3>
+                  <p className="text-foreground">{gameState.dare}</p>
+                </div>
+                <Button 
+                  variant="secondary" 
+                  size="lg"
+                  className="w-full"
+                  onClick={() => setGameState(prev => ({ ...prev, phase: 'odds' }))}
+                >
+                  I'm {gameState.target?.name} - Continue
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Odds Phase */}
           {gameState.phase === 'odds' && (
             <Card className="bg-gradient-card shadow-card animate-bounce-in">
               <CardHeader>
                 <CardTitle>Set Your Odds</CardTitle>
                 <CardDescription>
-                  How likely are you to do this dare?
+                  {mode === 'local' ? `${gameState.target?.name}, how` : 'How'} likely are you to do this dare?
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -293,31 +342,38 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
             </Card>
           )}
 
-          {/* Countdown Phase */}
-          {gameState.phase === 'countdown' && (
-            <Card className="bg-gradient-card shadow-card animate-bounce-in text-center">
-              <CardContent className="pt-8 pb-8">
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold">Get Ready!</h2>
-                  <p className="text-muted-foreground">
-                    Both players pick a number between 1 and {gameState.odds}
-                  </p>
-                  <div className="text-8xl font-bold text-primary animate-bounce-in">
-                    {gameState.countdownTimer}
-                  </div>
-                  <p className="text-lg">
-                    If you pick the same number, the dare happens!
-                  </p>
+          {/* Pass Phone for Challenger Number */}
+          {gameState.phase === 'pass-for-challenger-number' && (
+            <Card className="bg-gradient-card shadow-card animate-bounce-in">
+              <CardHeader className="text-center">
+                <CardTitle className="text-2xl">📱 Pass the Phone!</CardTitle>
+                <CardDescription>
+                  Give the phone to <strong>{gameState.challenger?.name}</strong> to pick their number
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="text-center space-y-4">
+                <div className="p-4 bg-game-bg rounded-lg border border-primary/20">
+                  <h3 className="font-semibold mb-2">The Challenge:</h3>
+                  <p className="text-foreground mb-2">{gameState.dare}</p>
+                  <Badge variant="secondary">Odds: 1 in {gameState.odds}</Badge>
                 </div>
+                <Button 
+                  variant="dare" 
+                  size="lg"
+                  className="w-full"
+                  onClick={() => setGameState(prev => ({ ...prev, phase: 'challenger-number' }))}
+                >
+                  I'm {gameState.challenger?.name} - Pick My Number
+                </Button>
               </CardContent>
             </Card>
           )}
 
-          {/* Reveal Phase */}
-          {gameState.phase === 'reveal' && (
+          {/* Challenger Number Phase */}
+          {gameState.phase === 'challenger-number' && (
             <Card className="bg-gradient-card shadow-card animate-bounce-in">
               <CardHeader>
-                <CardTitle className="text-center">Pick Your Number!</CardTitle>
+                <CardTitle className="text-center">{gameState.challenger?.name}, Pick Your Number!</CardTitle>
                 <CardDescription className="text-center">
                   Choose a number between 1 and {gameState.odds}
                 </CardDescription>
@@ -355,7 +411,7 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
                   variant="default" 
                   size="lg"
                   className="w-full"
-                  onClick={submitNumber}
+                  onClick={submitChallengerNumber}
                   disabled={selectedNumber === null}
                 >
                   Lock in Number: {selectedNumber}
@@ -363,6 +419,108 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
               </CardContent>
             </Card>
           )}
+
+          {/* Pass Phone for Target Number */}
+          {gameState.phase === 'pass-for-target-number' && (
+            <Card className="bg-gradient-card shadow-card animate-bounce-in">
+              <CardHeader className="text-center">
+                <CardTitle className="text-2xl">📱 Pass the Phone!</CardTitle>
+                <CardDescription>
+                  Give the phone to <strong>{gameState.target?.name}</strong> to pick their number
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="text-center space-y-4">
+                <div className="p-4 bg-game-bg rounded-lg border border-primary/20">
+                  <h3 className="font-semibold mb-2">The Challenge:</h3>
+                  <p className="text-foreground mb-2">{gameState.dare}</p>
+                  <Badge variant="secondary">Odds: 1 in {gameState.odds}</Badge>
+                  <div className="mt-2">
+                    <Badge variant="outline">{gameState.challenger?.name} picked their number ✓</Badge>
+                  </div>
+                </div>
+                <Button 
+                  variant="dare" 
+                  size="lg"
+                  className="w-full"
+                  onClick={() => setGameState(prev => ({ ...prev, phase: 'target-number' }))}
+                >
+                  I'm {gameState.target?.name} - Pick My Number
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Target Number Phase */}
+          {gameState.phase === 'target-number' && (
+            <Card className="bg-gradient-card shadow-card animate-bounce-in">
+              <CardHeader>
+                <CardTitle className="text-center">{gameState.target?.name}, Pick Your Number!</CardTitle>
+                <CardDescription className="text-center">
+                  Choose a number between 1 and {gameState.odds}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-5 gap-3 max-w-md mx-auto">
+                  {generateNumberGrid(Math.min(gameState.odds, 20)).map((num) => (
+                    <Button
+                      key={num}
+                      variant={selectedNumber === num ? "default" : "number"}
+                      size="number"
+                      onClick={() => setSelectedNumber(num)}
+                      className="aspect-square"
+                    >
+                      {num}
+                    </Button>
+                  ))}
+                </div>
+
+                {gameState.odds > 20 && (
+                  <div className="flex items-center gap-2 justify-center">
+                    <Label>Or enter a number:</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max={gameState.odds}
+                      value={selectedNumber || ''}
+                      onChange={(e) => setSelectedNumber(parseInt(e.target.value) || null)}
+                      className="w-20 text-center"
+                    />
+                  </div>
+                )}
+
+                <Button 
+                  variant="default" 
+                  size="lg"
+                  className="w-full"
+                  onClick={submitTargetNumber}
+                  disabled={selectedNumber === null}
+                >
+                  Lock in Number & Start Countdown!
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Final Countdown Phase */}
+          {gameState.phase === 'final-countdown' && (
+            <Card className="bg-gradient-card shadow-card animate-bounce-in text-center">
+              <CardContent className="pt-8 pb-8">
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold">📱 Put the phone on the table!</h2>
+                  <p className="text-muted-foreground">
+                    Both numbers are locked in. Revealing in...
+                  </p>
+                  <div className="text-8xl font-bold text-primary animate-bounce-in">
+                    {gameState.countdownTimer}
+                  </div>
+                  <p className="text-lg">
+                    If the numbers match, the dare happens!
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
 
           {/* Result Phase */}
           {gameState.phase === 'result' && (
@@ -378,7 +536,7 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
                       {isMatch ? 'IT\'S A MATCH!' : 'Safe This Time!'}
                     </h2>
                     <p className={`text-lg ${isMatch ? 'text-white/90' : 'text-muted-foreground'}`}>
-                      Challenger picked {gameState.challengerNumber}, Target picked {gameState.targetNumber}
+                      {gameState.challenger?.name} picked {gameState.challengerNumber}, {gameState.target?.name} picked {gameState.targetNumber}
                     </p>
                   </div>
 
