@@ -16,7 +16,7 @@ interface Player {
 }
 
 interface GameState {
-  phase: 'setup' | 'dare' | 'pass-for-odds' | 'odds' | 'pass-for-challenger-number' | 'challenger-number' | 'pass-for-target-number' | 'target-number' | 'final-countdown' | 'result' | 'leaderboard';
+  phase: 'setup' | 'dare' | 'pass-for-odds' | 'odds' | 'pass-for-challenger-number' | 'challenger-number' | 'pass-for-target-number' | 'target-number' | 'final-countdown' | 'result' | 'leaderboard' | 'admin-login' | 'manage-dares';
   challenger?: Player;
   target?: Player;
   dare: string;
@@ -53,9 +53,11 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
   const [selectedOdds, setSelectedOdds] = useState(10);
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-
-  // Predefined dare suggestions
-  const dareSuggestions = [
+  const [adminMode, setAdminMode] = useState(false);
+  const [adminUsername, setAdminUsername] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [newDare, setNewDare] = useState('');
+  const [predefinedDares, setPredefinedDares] = useState([
     "Text your crush 'What's up?' right now",
     "Do 10 pushups in front of everyone",
     "Sing 'Happy Birthday' at the top of your lungs",
@@ -71,7 +73,10 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
     "Wear your clothes backwards for the next round",
     "Make up a rap about your day",
     "Do your best animal impression for 1 minute"
-  ];
+  ]);
+
+  // Predefined dare suggestions (for backward compatibility)
+  const dareSuggestions = predefinedDares;
 
   // Initialize game based on mode
   useEffect(() => {
@@ -145,6 +150,25 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
     }, 1000);
   };
 
+  const adminLogin = () => {
+    if (adminUsername === 'admin' && adminPassword === 'admin') {
+      setAdminMode(true);
+      setAdminUsername('');
+      setAdminPassword('');
+      toast({
+        title: "Admin Access Granted",
+        description: "You can now edit dares and leaderboard entries.",
+      });
+      setGameState(prev => ({ ...prev, phase: 'leaderboard' }));
+    } else {
+      toast({
+        title: "Access Denied",
+        description: "Invalid admin credentials.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const addToLeaderboard = (winner: string, dare: string, odds: number) => {
     const entry: LeaderboardEntry = {
       winner,
@@ -153,6 +177,43 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
       timestamp: new Date()
     };
     setLeaderboard(prev => [entry, ...prev]);
+    
+    toast({
+      title: "Added to Leaderboard!",
+      description: `${winner} completed the dare successfully.`,
+    });
+    
+    // Navigate back to main page after a short delay
+    setTimeout(() => {
+      setGameState(prev => ({ ...prev, phase: 'setup' }));
+    }, 1500);
+  };
+
+  const deleteLeaderboardEntry = (index: number) => {
+    setLeaderboard(prev => prev.filter((_, i) => i !== index));
+    toast({
+      title: "Entry Deleted",
+      description: "Leaderboard entry has been removed.",
+    });
+  };
+
+  const addNewDare = () => {
+    if (newDare.trim()) {
+      setPredefinedDares(prev => [...prev, newDare.trim()]);
+      setNewDare('');
+      toast({
+        title: "Dare Added",
+        description: "New dare has been added to the list.",
+      });
+    }
+  };
+
+  const deleteDare = (index: number) => {
+    setPredefinedDares(prev => prev.filter((_, i) => i !== index));
+    toast({
+      title: "Dare Deleted",
+      description: "Dare has been removed from the list.",
+    });
   };
 
   const showLeaderboard = () => {
@@ -652,9 +713,21 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
           {gameState.phase === 'leaderboard' && (
             <Card className="bg-gradient-card shadow-card animate-bounce-in">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-yellow-500" />
-                  Leaderboard
+                <CardTitle className="flex items-center gap-2 justify-between">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-5 h-5 text-yellow-500" />
+                    Leaderboard
+                  </div>
+                  {!adminMode && (
+                    <Button variant="ghost" size="sm" onClick={() => setGameState(prev => ({ ...prev, phase: 'admin-login' }))}>
+                      Admin
+                    </Button>
+                  )}
+                  {adminMode && (
+                    <Button variant="ghost" size="sm" onClick={() => setAdminMode(false)}>
+                      Exit Admin
+                    </Button>
+                  )}
                 </CardTitle>
                 <CardDescription>
                   Champions who completed their dares!
@@ -685,19 +758,145 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
                               {entry.timestamp.toLocaleDateString()} at {entry.timestamp.toLocaleTimeString()}
                             </p>
                           </div>
+                          {adminMode && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => deleteLeaderboardEntry(index)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              Delete
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
                 
+                <div className="space-y-2">
+                  <Button 
+                    variant="ghost" 
+                    size="lg"
+                    className="w-full"
+                    onClick={() => setGameState(prev => ({ ...prev, phase: 'setup' }))}
+                  >
+                    Back to Game
+                  </Button>
+                  
+                  {adminMode && (
+                    <Button 
+                      variant="secondary" 
+                      size="lg"
+                      className="w-full"
+                      onClick={() => setGameState(prev => ({ ...prev, phase: 'manage-dares' }))}
+                    >
+                      Manage Dares
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Admin Login Phase */}
+          {gameState.phase === 'admin-login' && (
+            <Card className="bg-gradient-card shadow-card animate-bounce-in">
+              <CardHeader>
+                <CardTitle>Admin Access</CardTitle>
+                <CardDescription>
+                  Enter admin credentials to manage dares and leaderboard
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Username</Label>
+                  <Input
+                    type="text"
+                    value={adminUsername}
+                    onChange={(e) => setAdminUsername(e.target.value)}
+                    placeholder="admin"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Password</Label>
+                  <Input
+                    type="password"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    placeholder="admin"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="default"
+                    onClick={adminLogin}
+                    className="flex-1"
+                  >
+                    Login
+                  </Button>
+                  <Button 
+                    variant="ghost"
+                    onClick={() => setGameState(prev => ({ ...prev, phase: 'leaderboard' }))}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Manage Dares Phase */}
+          {gameState.phase === 'manage-dares' && (
+            <Card className="bg-gradient-card shadow-card animate-bounce-in">
+              <CardHeader>
+                <CardTitle>Manage Dares</CardTitle>
+                <CardDescription>
+                  Add new dares or remove existing ones
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Add New Dare</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={newDare}
+                      onChange={(e) => setNewDare(e.target.value)}
+                      placeholder="Enter a new dare..."
+                    />
+                    <Button onClick={addNewDare} disabled={!newDare.trim()}>
+                      Add
+                    </Button>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  <Label>Current Dares ({predefinedDares.length})</Label>
+                  {predefinedDares.map((dare, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-game-bg rounded border">
+                      <span className="text-sm flex-1">{dare}</span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => deleteDare(index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
                 <Button 
                   variant="ghost" 
                   size="lg"
                   className="w-full"
-                  onClick={() => setGameState(prev => ({ ...prev, phase: 'setup' }))}
+                  onClick={() => setGameState(prev => ({ ...prev, phase: 'leaderboard' }))}
                 >
-                  Back to Game
+                  Back to Leaderboard
                 </Button>
               </CardContent>
             </Card>
