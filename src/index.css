@@ -6,51 +6,51 @@
 
 @layer base {
   :root {
-    --background: 270 20% 98%;
-    --foreground: 270 15% 9%;
+    --background: 220 15% 97%;
+    --foreground: 220 10% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 270 15% 9%;
+    --card-foreground: 220 10% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 270 15% 9%;
+    --popover-foreground: 220 10% 10%;
 
-    --primary: 280 100% 70%;
+    --primary: 340 85% 55%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 290 100% 80%;
+    --primary-glow: 340 90% 65%;
 
-    --secondary: 200 100% 70%;
+    --secondary: 160 80% 45%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 270 20% 94%;
-    --muted-foreground: 270 8% 45%;
+    --muted: 220 15% 92%;
+    --muted-foreground: 220 8% 50%;
 
-    --accent: 45 100% 70%;
+    --accent: 25 95% 60%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 270 20% 88%;
-    --input: 270 20% 88%;
-    --ring: 280 100% 70%;
+    --border: 220 15% 85%;
+    --input: 220 15% 85%;
+    --ring: 340 85% 55%;
 
     /* Game-specific colors */
-    --game-bg: 270 100% 95%;
-    --dare-accent: 15 100% 70%;
+    --game-bg: 220 100% 96%;
+    --dare-accent: 270 85% 65%;
     --success: 140 100% 50%;
     --warning: 45 100% 60%;
 
     /* Gradients */
-    --gradient-party: linear-gradient(135deg, hsl(280 100% 70%), hsl(200 100% 70%), hsl(45 100% 70%));
-    --gradient-dare: linear-gradient(135deg, hsl(15 100% 70%), hsl(280 100% 70%));
-    --gradient-bg: linear-gradient(180deg, hsl(270 100% 98%), hsl(270 100% 95%));
-    --gradient-card: linear-gradient(135deg, hsl(0 0% 100% / 0.9), hsl(270 100% 99% / 0.9));
+    --gradient-party: linear-gradient(135deg, hsl(340 85% 55%), hsl(160 80% 45%), hsl(270 85% 65%));
+    --gradient-dare: linear-gradient(135deg, hsl(25 95% 60%), hsl(340 85% 55%));
+    --gradient-bg: linear-gradient(180deg, hsl(220 100% 98%), hsl(220 100% 95%));
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 100% / 0.95), hsl(220 100% 99% / 0.95));
 
     /* Shadows */
-    --shadow-party: 0 10px 40px hsl(280 100% 70% / 0.3);
-    --shadow-card: 0 8px 32px hsl(270 20% 20% / 0.1);
-    --shadow-button: 0 4px 20px hsl(280 100% 70% / 0.4);
+    --shadow-party: 0 10px 40px hsl(340 85% 55% / 0.25);
+    --shadow-card: 0 8px 32px hsl(220 20% 20% / 0.08);
+    --shadow-button: 0 4px 20px hsl(340 85% 55% / 0.35);
 
     /* Animations */
     --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);

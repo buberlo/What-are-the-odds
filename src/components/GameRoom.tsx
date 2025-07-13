@@ -55,7 +55,7 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [adminMode, setAdminMode] = useState(false);
   const [adminUsername, setAdminUsername] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
+  
   const [newDare, setNewDare] = useState('');
   const [predefinedDares, setPredefinedDares] = useState([
     "Text your crush 'What's up?' right now",
@@ -151,10 +151,9 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
   };
 
   const adminLogin = () => {
-    if (adminUsername === 'admin' && adminPassword === 'admin') {
+    if (adminUsername === 'admin') {
       setAdminMode(true);
       setAdminUsername('');
-      setAdminPassword('');
       toast({
         title: "Admin Access Granted",
         description: "You can now edit dares and leaderboard entries.",
@@ -815,15 +814,6 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
                     type="text"
                     value={adminUsername}
                     onChange={(e) => setAdminUsername(e.target.value)}
-                    placeholder="admin"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Password</Label>
-                  <Input
-                    type="password"
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
                     placeholder="admin"
                   />
                 </div>
