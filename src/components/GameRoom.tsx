@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, Timer, Users, Home, Zap, Target } from "lucide-react";
+import { Dice1, Dice2, Dice3, Dice4, Dice5, Dice6, Timer, Users, Home, Zap, Target, Lightbulb, Trophy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Player {
@@ -16,7 +16,7 @@ interface Player {
 }
 
 interface GameState {
-  phase: 'setup' | 'dare' | 'pass-for-odds' | 'odds' | 'pass-for-challenger-number' | 'challenger-number' | 'pass-for-target-number' | 'target-number' | 'final-countdown' | 'result';
+  phase: 'setup' | 'dare' | 'pass-for-odds' | 'odds' | 'pass-for-challenger-number' | 'challenger-number' | 'pass-for-target-number' | 'target-number' | 'final-countdown' | 'result' | 'leaderboard';
   challenger?: Player;
   target?: Player;
   dare: string;
@@ -24,6 +24,13 @@ interface GameState {
   challengerNumber?: number;
   targetNumber?: number;
   countdownTimer: number;
+}
+
+interface LeaderboardEntry {
+  winner: string;
+  dare: string;
+  odds: number;
+  timestamp: Date;
 }
 
 interface GameRoomProps {
@@ -40,11 +47,31 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
     phase: 'setup',
     dare: '',
     odds: 10,
-    countdownTimer: 3
+    countdownTimer: 10
   });
   const [dareInput, setDareInput] = useState('');
   const [selectedOdds, setSelectedOdds] = useState(10);
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+
+  // Predefined dare suggestions
+  const dareSuggestions = [
+    "Text your crush 'What's up?' right now",
+    "Do 10 pushups in front of everyone",
+    "Sing 'Happy Birthday' at the top of your lungs",
+    "Call a random contact and tell them a dad joke",
+    "Post an embarrassing selfie on social media",
+    "Do your best impression of a celebrity for 1 minute",
+    "Eat a spoonful of hot sauce",
+    "Dance like nobody's watching for 30 seconds",
+    "Tell everyone your most embarrassing moment",
+    "Speak in an accent for the next 10 minutes",
+    "Do 20 jumping jacks while shouting your name",
+    "Let someone else post a status on your social media",
+    "Wear your clothes backwards for the next round",
+    "Make up a rap about your day",
+    "Do your best animal impression for 1 minute"
+  ];
 
   // Initialize game based on mode
   useEffect(() => {
@@ -72,7 +99,7 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
       phase: 'dare',
       dare: '',
       odds: 10,
-      countdownTimer: 3
+      countdownTimer: 10
     });
     setDareInput('');
     setSelectedOdds(10);
@@ -104,7 +131,7 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
   };
 
   const startCountdown = () => {
-    let timer = 3;
+    let timer = 10;
     setGameState(prev => ({ ...prev, countdownTimer: timer }));
     
     const interval = setInterval(() => {
@@ -116,6 +143,20 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
         setGameState(prev => ({ ...prev, phase: 'result' }));
       }
     }, 1000);
+  };
+
+  const addToLeaderboard = (winner: string, dare: string, odds: number) => {
+    const entry: LeaderboardEntry = {
+      winner,
+      dare,
+      odds,
+      timestamp: new Date()
+    };
+    setLeaderboard(prev => [entry, ...prev]);
+  };
+
+  const showLeaderboard = () => {
+    setGameState(prev => ({ ...prev, phase: 'leaderboard' }));
   };
 
   const submitChallengerNumber = () => {
@@ -187,11 +228,17 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
           </div>
           
           {/* Players */}
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
-              {players.length} player{players.length !== 1 ? 's' : ''}
-            </span>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={showLeaderboard}>
+              <Trophy className="w-4 h-4 mr-2" />
+              Leaderboard
+            </Button>
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                {players.length} player{players.length !== 1 ? 's' : ''}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -235,8 +282,19 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="dare">What's the dare?</Label>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="dare">What's the dare?</Label>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setDareInput(dareSuggestions[Math.floor(Math.random() * dareSuggestions.length)])}
+                    >
+                      <Lightbulb className="w-4 h-4 mr-2" />
+                      Random Suggestion
+                    </Button>
+                  </div>
+                  
                   <Textarea
                     id="dare"
                     placeholder="e.g., Text your crush 'What's up?' right now"
@@ -244,7 +302,26 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
                     onChange={(e) => setDareInput(e.target.value)}
                     className="min-h-[100px]"
                   />
+                  
+                  {/* Dare suggestions */}
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Or choose from suggestions:</Label>
+                    <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto">
+                      {dareSuggestions.slice(0, 6).map((suggestion, index) => (
+                        <Button
+                          key={index}
+                          variant="ghost"
+                          size="sm"
+                          className="justify-start text-left h-auto p-2 whitespace-normal"
+                          onClick={() => setDareInput(suggestion)}
+                        >
+                          {suggestion}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
+                
                 <Button 
                   variant="dare" 
                   size="lg"
@@ -547,6 +624,17 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
                     </div>
                   )}
 
+                  {isMatch && (
+                    <Button 
+                      variant="secondary"
+                      size="sm"
+                      className="mb-4"
+                      onClick={() => addToLeaderboard(gameState.target?.name || 'Unknown', gameState.dare, gameState.odds)}
+                    >
+                      Add to Leaderboard
+                    </Button>
+                  )}
+
                   <Button 
                     variant={isMatch ? "secondary" : "party"}
                     size="lg"
@@ -556,6 +644,61 @@ const GameRoom = ({ mode, roomCode, playerName }: GameRoomProps) => {
                     Play Again
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Leaderboard Phase */}
+          {gameState.phase === 'leaderboard' && (
+            <Card className="bg-gradient-card shadow-card animate-bounce-in">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-yellow-500" />
+                  Leaderboard
+                </CardTitle>
+                <CardDescription>
+                  Champions who completed their dares!
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {leaderboard.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No completed dares yet. Be the first to win a challenge!
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {leaderboard.map((entry, index) => (
+                      <div key={index} className="p-3 bg-game-bg rounded-lg border border-primary/20">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="default" className="text-xs">
+                                #{index + 1}
+                              </Badge>
+                              <span className="font-semibold">{entry.winner}</span>
+                              <Badge variant="secondary" className="text-xs">
+                                1 in {entry.odds}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-foreground/80">{entry.dare}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {entry.timestamp.toLocaleDateString()} at {entry.timestamp.toLocaleTimeString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <Button 
+                  variant="ghost" 
+                  size="lg"
+                  className="w-full"
+                  onClick={() => setGameState(prev => ({ ...prev, phase: 'setup' }))}
+                >
+                  Back to Game
+                </Button>
               </CardContent>
             </Card>
           )}
