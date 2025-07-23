@@ -67,31 +67,43 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-bg">
       {/* Top Navigation Bar */}
       <nav className="bg-card/80 backdrop-blur-sm border-b border-border shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold bg-gradient-party bg-clip-text text-transparent">
+            <div className="flex items-center">
+              <h1 className="text-lg sm:text-2xl font-bold bg-gradient-party bg-clip-text text-transparent">
                 What Are The Odds?
               </h1>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-1 sm:space-x-4">
               <Tabs defaultValue="local" className="w-auto">
-                <TabsList className="bg-muted">
-                  <TabsTrigger value="local">Local Game</TabsTrigger>
-                  <TabsTrigger value="multiplayer" onClick={() => setGameMode('menu')}>Multiplayer</TabsTrigger>
+                <TabsList className="bg-muted h-8 sm:h-10">
+                  <TabsTrigger value="local" className="text-xs sm:text-sm px-2 sm:px-3" onClick={() => setGameMode('menu')}>Local</TabsTrigger>
+                  <TabsTrigger value="multiplayer" className="text-xs sm:text-sm px-2 sm:px-3" onClick={() => setGameMode('create')}>Multiplayer</TabsTrigger>
                 </TabsList>
               </Tabs>
               
-              <Button variant="outline" size="sm" onClick={showLeaderboard}>
+              <Button variant="outline" size="sm" onClick={showLeaderboard} className="hidden sm:flex">
                 <Trophy className="w-4 h-4 mr-2" />
                 Leaderboard
+              </Button>
+              <Button variant="outline" size="sm" onClick={showLeaderboard} className="sm:hidden">
+                <Trophy className="w-4 h-4" />
+              </Button>
+              
+              <Button variant="ghost" size="sm" onClick={() => navigate('/about')} className="hidden sm:flex">
+                About
               </Button>
               
               <Dialog open={isAdminOpen} onOpenChange={setIsAdminOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="hidden sm:flex">
                     <Settings className="w-4 h-4 mr-2" />
                     Admin
+                  </Button>
+                </DialogTrigger>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="sm:hidden">
+                    <Settings className="w-4 h-4" />
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
