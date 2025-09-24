@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { DareConfig, Player } from "../types";
+import { useTranslation } from "../i18n";
 
 interface DareComposerProps {
   players: Player[];
@@ -7,16 +8,8 @@ interface DareComposerProps {
   onLaunch: (config: DareConfig) => void;
 }
 
-const darePrompts = [
-  "Sing the chorus of your favorite guilty-pleasure song",
-  "Do a dramatic reading of the last text you sent",
-  "Balance a cup on your head for ten seconds",
-  "Let the challenger redesign your avatar",
-  "Speak in rhyme for the next round",
-  "Share a surprising fun fact about yourself",
-];
-
 const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
+  const { t, dictionary } = useTranslation();
   const [challengerId, setChallengerId] = useState<string>("");
   const [targetId, setTargetId] = useState<string>("");
   const [description, setDescription] = useState<string>("");
@@ -24,6 +17,8 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
   const [odds, setOdds] = useState<number>(6);
 
   const canPlay = players.length >= 2;
+  const prompts = dictionary.composer.prompts;
+  const heatLevels = dictionary.composer.heat;
 
   useEffect(() => {
     if (!canPlay) {
@@ -46,12 +41,12 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
   }, [canPlay, players, challengerId, targetId]);
 
   const oddsLabel = useMemo(() => {
-    if (odds <= 4) return "Spicy";
-    if (odds <= 8) return "Bold";
-    if (odds <= 12) return "Classic";
-    if (odds <= 16) return "Stretch";
-    return "Long shot";
-  }, [odds]);
+    if (odds <= 4) return heatLevels.spicy;
+    if (odds <= 8) return heatLevels.bold;
+    if (odds <= 12) return heatLevels.classic;
+    if (odds <= 16) return heatLevels.stretch;
+    return heatLevels.longShot;
+  }, [heatLevels, odds]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -73,7 +68,7 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
   };
 
   const randomizePrompt = () => {
-    const candidates = darePrompts.filter((prompt) => prompt !== description.trim());
+    const candidates = prompts.filter((prompt) => prompt !== description.trim());
     const choice = candidates[Math.floor(Math.random() * candidates.length)];
     setDescription(choice ?? "");
   };
@@ -88,8 +83,8 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
     <section className="panel">
       <header className="panel__header">
         <div>
-          <p className="panel__eyebrow">Set the dare</p>
-          <h2 className="panel__title">Odds builder</h2>
+          <p className="panel__eyebrow">{t("composer.eyebrow")}</p>
+          <h2 className="panel__title">{t("composer.title")}</h2>
         </div>
         <button
           type="button"
@@ -97,20 +92,20 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
           onClick={randomizePrompt}
           disabled={!canPlay || disabled}
         >
-          Inspire me
+          {t("composer.inspire")}
         </button>
       </header>
 
       {!canPlay ? (
-        <p className="panel__empty">Add at least two players to open the odds board.</p>
+        <p className="panel__empty">{t("composer.empty")}</p>
       ) : (
         <form className="composer" onSubmit={handleSubmit}>
           <div className="composer__row">
             <label>
-              <span>Challenger</span>
+              <span>{t("composer.challengerLabel")}</span>
               <select value={challengerId} onChange={(event) => setChallengerId(event.target.value)}>
                 <option value="" disabled>
-                  Select a challenger
+                  {t("composer.challengerPlaceholder")}
                 </option>
                 {players.map((player) => (
                   <option key={player.id} value={player.id}>
@@ -124,15 +119,15 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
               className="composer__swap"
               onClick={swapPlayers}
               disabled={disabled || !challengerId || !targetId}
-              aria-label="Swap challenger and target"
+              aria-label={t("composer.swapAria")}
             >
               ⇄
             </button>
             <label>
-              <span>Target</span>
+              <span>{t("composer.targetLabel")}</span>
               <select value={targetId} onChange={(event) => setTargetId(event.target.value)}>
                 <option value="" disabled>
-                  Select a target
+                  {t("composer.targetPlaceholder")}
                 </option>
                 {players
                   .filter((player) => player.id !== challengerId)
@@ -146,31 +141,31 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
           </div>
 
           <label className="composer__field">
-            <span>Dare prompt</span>
+            <span>{t("composer.promptLabel")}</span>
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="Describe the dare everyone is playing for"
+              placeholder={t("composer.promptPlaceholder")}
               rows={3}
               maxLength={140}
             />
           </label>
 
           <label className="composer__field">
-            <span>Sweetener</span>
+            <span>{t("composer.sweetenerLabel")}</span>
             <input
               value={stakes}
               onChange={(event) => setStakes(event.target.value)}
-              placeholder="Add a reward or twist (optional)"
+              placeholder={t("composer.sweetenerPlaceholder")}
               maxLength={80}
             />
           </label>
 
           <div className="composer__odds">
             <div>
-              <p>Odds range</p>
+              <p>{t("composer.oddsRangeLabel")}</p>
               <p className="composer__odds-value">
-                1 in {odds} <span>{oddsLabel}</span>
+                {t("composer.oddsValue", { value: odds })} <span>{oddsLabel}</span>
               </p>
             </div>
             <input
@@ -183,9 +178,9 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
           </div>
 
           <footer className="composer__footer">
-            <p className="composer__hint">Lock in once both players accept the challenge.</p>
+            <p className="composer__hint">{t("composer.hint")}</p>
             <button className="button" type="submit" disabled={disabled}>
-              Launch round
+              {t("composer.launch")}
             </button>
           </footer>
         </form>

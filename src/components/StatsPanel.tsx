@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Player } from "../types";
+import { useTranslation } from "../i18n";
 
 interface StatsPanelProps {
   players: Player[];
@@ -7,6 +8,7 @@ interface StatsPanelProps {
 }
 
 const StatsPanel = ({ players, roundsPlayed }: StatsPanelProps) => {
+  const { t } = useTranslation();
   const totals = useMemo(() => {
     const dares = players.reduce((sum, player) => sum + player.daresCompleted, 0);
     const wins = players.reduce((sum, player) => sum + player.wins, 0);
@@ -19,34 +21,36 @@ const StatsPanel = ({ players, roundsPlayed }: StatsPanelProps) => {
     <section className="panel stats">
       <header className="panel__header">
         <div>
-          <p className="panel__eyebrow">Session pulse</p>
-          <h2 className="panel__title">Stats</h2>
+          <p className="panel__eyebrow">{t("stats.eyebrow")}</p>
+          <h2 className="panel__title">{t("stats.title")}</h2>
         </div>
       </header>
 
       <div className="stats__grid">
         <div className="stats__card">
-          <p className="stats__label">Rounds launched</p>
+          <p className="stats__label">{t("stats.roundsLabel")}</p>
           <p className="stats__value">{roundsPlayed}</p>
-          <span className="stats__note">Keep the momentum going!</span>
+          <span className="stats__note">{t("stats.roundsNote")}</span>
         </div>
         <div className="stats__card">
-          <p className="stats__label">Dares completed</p>
+          <p className="stats__label">{t("stats.daresLabel")}</p>
           <p className="stats__value">{totals.dares}</p>
-          <span className="stats__note">{totals.dares > 0 ? "Legends in the making" : "Awaiting first dare"}</span>
+          <span className="stats__note">
+            {totals.dares > 0 ? t("stats.daresNoteSome") : t("stats.daresNoteNone")}
+          </span>
         </div>
         <div className="stats__card">
-          <p className="stats__label">Wins vs losses</p>
+          <p className="stats__label">{t("stats.recordLabel")}</p>
           <p className="stats__value">
             {totals.wins} / {totals.losses}
           </p>
-          <span className="stats__note">Who will take the lead?</span>
+          <span className="stats__note">{t("stats.recordNote")}</span>
         </div>
       </div>
 
       {totals.mvp && (
         <div className="stats__mvp">
-          <p className="panel__eyebrow">MVP spotlight</p>
+          <p className="panel__eyebrow">{t("stats.mvpEyebrow")}</p>
           <div className="stats__mvp-card" style={{ borderColor: totals.mvp.color }}>
             <div className="stats__mvp-burst" style={{ background: totals.mvp.color }} />
             <div>
@@ -54,7 +58,7 @@ const StatsPanel = ({ players, roundsPlayed }: StatsPanelProps) => {
                 {totals.mvp.icon} {totals.mvp.name}
               </p>
               <p className="stats__mvp-note">
-                {totals.mvp.daresCompleted} dares · {totals.mvp.wins} wins
+                {t("stats.mvpNote", { dares: totals.mvp.daresCompleted, wins: totals.mvp.wins })}
               </p>
             </div>
           </div>

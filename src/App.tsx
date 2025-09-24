@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import ActiveRoundStage from "./components/ActiveRoundStage";
 import DareComposer from "./components/DareComposer";
 import HistoryPanel from "./components/HistoryPanel";
 import HowToPlayCard from "./components/HowToPlayCard";
 import PlayerRoster from "./components/PlayerRoster";
 import StatsPanel from "./components/StatsPanel";
+import { TranslationProvider, useTranslation, type Language } from "./i18n";
 import {
   ActiveRound,
   DareConfig,
@@ -28,11 +29,13 @@ const createPlayer = (name: string, icon: string, color: string): Player => ({
   daresCompleted: 0,
 });
 
-const App = () => {
+const AppContent = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [activeRound, setActiveRound] = useState<ActiveRound | null>(null);
   const [history, setHistory] = useState<RoundHistoryEntry[]>([]);
   const [roundsLaunched, setRoundsLaunched] = useState<number>(0);
+
+  const { t, language, setLanguage, languageLabel, languageOptions, availableLanguages } = useTranslation();
 
   const launchRound = (config: DareConfig) => {
     const nextRound: ActiveRound = {
@@ -174,15 +177,29 @@ const App = () => {
     [players],
   );
 
+  const handleLanguageChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    setLanguage(event.target.value as Language);
+  };
+
   return (
     <div className="app-shell">
       <header className="app-hero">
+        <div className="app-hero__language">
+          <label className="app-hero__language-control">
+            <span>{languageLabel}</span>
+            <select value={language} onChange={handleLanguageChange}>
+              {availableLanguages.map((code) => (
+                <option key={code} value={code}>
+                  {languageOptions[code]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <div className="app-hero__heading">
-          <p className="app-hero__eyebrow">Party odds tracker</p>
-          <h1 className="app-hero__title">What are the odds?!</h1>
-          <p className="app-hero__subtitle">
-            Launch dares, collect the secret picks, and reveal the outcome without slowing down the night.
-          </p>
+          <p className="app-hero__eyebrow">{t("app.hero.eyebrow")}</p>
+          <h1 className="app-hero__title">{t("app.hero.title")}</h1>
+          <p className="app-hero__subtitle">{t("app.hero.subtitle")}</p>
         </div>
         <div className="app-hero__footer">
           <div className="app-hero__avatars">
@@ -194,15 +211,15 @@ const App = () => {
           </div>
           <dl className="app-hero__quick">
             <div>
-              <dt>Players</dt>
+              <dt>{t("app.hero.quickStats.players")}</dt>
               <dd>{players.length}</dd>
             </div>
             <div>
-              <dt>Rounds</dt>
+              <dt>{t("app.hero.quickStats.rounds")}</dt>
               <dd>{roundsLaunched}</dd>
             </div>
             <div>
-              <dt>Dares</dt>
+              <dt>{t("app.hero.quickStats.dares")}</dt>
               <dd>{totalDaresCompleted}</dd>
             </div>
           </dl>
@@ -226,6 +243,16 @@ const App = () => {
         <StatsPanel players={players} roundsPlayed={roundsLaunched} />
       </main>
     </div>
+  );
+};
+
+const App = () => {
+  const [language, setLanguage] = useState<Language>("en");
+
+  return (
+    <TranslationProvider language={language} setLanguage={setLanguage}>
+      <AppContent />
+    </TranslationProvider>
   );
 };
 
