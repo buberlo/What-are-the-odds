@@ -294,7 +294,8 @@ button {
   justify-items: end;
 }
 
-.app-header__howto {
+.app-header__howto,
+.app-header__trophy-link {
   border-radius: 999px;
   padding: 6px 14px;
   background: rgba(255, 255, 255, 0.18);
@@ -302,35 +303,16 @@ button {
   box-shadow: 0 12px 26px rgba(10, 132, 255, 0.22);
 }
 
-.app-header__trophy-link {
-  border: none;
-  background: none;
-  padding: 0;
-  font-size: 0.85rem;
-  color: var(--accent-strong);
-  text-decoration: underline;
-  text-underline-offset: 4px;
-  transition: color 0.2s ease, opacity 0.2s ease;
-}
-
-.app-header__trophy-link:hover,
-.app-header__trophy-link:focus-visible {
-  color: var(--accent);
-}
-
-.app-header__trophy-link:disabled {
-  opacity: 0.6;
-  cursor: default;
-  text-decoration: none;
-}
-
 .app-header__howto:hover,
-.app-header__howto:focus-visible {
+.app-header__trophy-link:hover,
+.app-header__howto:focus-visible,
+.app-header__trophy-link:focus-visible {
   background: rgba(10, 132, 255, 0.16);
   box-shadow: 0 16px 32px rgba(10, 132, 255, 0.28);
 }
 
-.app-header__howto:disabled {
+.app-header__howto:disabled,
+.app-header__trophy-link:disabled {
   opacity: 0.65;
   box-shadow: none;
   cursor: default;
