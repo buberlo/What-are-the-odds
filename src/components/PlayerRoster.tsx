@@ -1,5 +1,6 @@
 import { FormEvent, useMemo, useState } from "react";
 import { Player } from "../types";
+import { useTranslation } from "../i18n";
 
 interface PlayerRosterProps {
   players: Player[];
@@ -34,6 +35,7 @@ const accentPalette = [
 ];
 
 const PlayerRoster = ({ players, onAdd, onRemove }: PlayerRosterProps) => {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [icon, setIcon] = useState(iconPool[0]);
   const [color, setColor] = useState(accentPalette[0]);
@@ -61,30 +63,27 @@ const PlayerRoster = ({ players, onAdd, onRemove }: PlayerRosterProps) => {
     <section className="panel">
       <header className="panel__header">
         <div>
-          <p className="panel__eyebrow">Crew Roster</p>
-          <h2 className="panel__title">Players ({players.length})</h2>
+          <p className="panel__eyebrow">{t("roster.eyebrow")}</p>
+          <h2 className="panel__title">{t("roster.title", { count: players.length })}</h2>
         </div>
-        <span className="panel__badge">Live</span>
+        <span className="panel__badge">{t("roster.badge")}</span>
       </header>
 
-      <p className="panel__description">
-        Add everyone who wants in. Each player gets a badge color and emoji to
-        make the reveal moment pop.
-      </p>
+      <p className="panel__description">{t("roster.description")}</p>
 
       <form className="roster-form" onSubmit={handleSubmit}>
         <label className="roster-form__input">
-          <span>Name</span>
+          <span>{t("roster.nameLabel")}</span>
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Player nickname"
+            placeholder={t("roster.namePlaceholder")}
             maxLength={24}
           />
         </label>
 
         <label className="roster-form__input">
-          <span>Icon</span>
+          <span>{t("roster.iconLabel")}</span>
           <select value={icon} onChange={(event) => setIcon(event.target.value)}>
             {iconPool.map((option) => (
               <option key={option} value={option}>
@@ -95,7 +94,7 @@ const PlayerRoster = ({ players, onAdd, onRemove }: PlayerRosterProps) => {
         </label>
 
         <label className="roster-form__input">
-          <span>Accent</span>
+          <span>{t("roster.accentLabel")}</span>
           <div className="roster-form__colors">
             {accentPalette.map((swatch) => (
               <button
@@ -104,16 +103,16 @@ const PlayerRoster = ({ players, onAdd, onRemove }: PlayerRosterProps) => {
                 className={`roster-form__color${color === swatch ? " is-active" : ""}`}
                 style={{ background: swatch }}
                 onClick={() => setColor(swatch)}
-                aria-label={`Use ${swatch} as accent`}
+                aria-label={t("roster.accentAria", { color: swatch })}
               />
             ))}
           </div>
         </label>
 
         <button className="button" type="submit" disabled={limitReached || !name.trim()}>
-          Add player
+          {t("roster.submit")}
         </button>
-        {limitReached && <p className="roster-form__hint">Max 12 players for now.</p>}
+        {limitReached && <p className="roster-form__hint">{t("roster.limitHint")}</p>}
       </form>
 
       <ul className="roster-list">
@@ -126,7 +125,11 @@ const PlayerRoster = ({ players, onAdd, onRemove }: PlayerRosterProps) => {
               <div>
                 <p className="roster-list__name">{player.name}</p>
                 <p className="roster-list__stats">
-                  {player.wins} wins · {player.losses} losses · {player.daresCompleted} dares
+                  {t("roster.playerStats", {
+                    wins: player.wins,
+                    losses: player.losses,
+                    dares: player.daresCompleted,
+                  })}
                 </p>
               </div>
             </div>
@@ -134,7 +137,7 @@ const PlayerRoster = ({ players, onAdd, onRemove }: PlayerRosterProps) => {
               type="button"
               className="roster-list__remove"
               onClick={() => onRemove(player.id)}
-              aria-label={`Remove ${player.name}`}
+              aria-label={t("roster.remove", { name: player.name })}
             >
               ×
             </button>
@@ -144,7 +147,7 @@ const PlayerRoster = ({ players, onAdd, onRemove }: PlayerRosterProps) => {
 
       {players.length > 0 && (
         <aside className="roster-spotlight">
-          <p className="panel__eyebrow">Tonight's spotlight</p>
+          <p className="panel__eyebrow">{t("roster.spotlightEyebrow")}</p>
           <div className="roster-spotlight__chips">
             {scoreboard.map((player) => (
               <span
@@ -156,7 +159,9 @@ const PlayerRoster = ({ players, onAdd, onRemove }: PlayerRosterProps) => {
                 {player.name}
               </span>
             ))}
-            {scoreboard.length === 0 && <span className="roster-spotlight__chip is-empty">Add a player to begin</span>}
+            {scoreboard.length === 0 && (
+              <span className="roster-spotlight__chip is-empty">{t("roster.spotlightEmpty")}</span>
+            )}
           </div>
         </aside>
       )}

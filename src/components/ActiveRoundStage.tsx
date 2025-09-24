@@ -1,5 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { ActiveRound, Player, RoundResolution } from "../types";
+import { useTranslation } from "../i18n";
 
 interface ActiveRoundStageProps {
   round: ActiveRound | null;
@@ -10,12 +11,6 @@ interface ActiveRoundStageProps {
   onCancel: () => void;
   onArchive: () => void;
 }
-
-const resolutionLabels: Record<RoundResolution, string> = {
-  completed: "Dare completed",
-  declined: "Passed / declined",
-  partial: "Remixed dare",
-};
 
 type CollectingStep = "challenger" | "target" | "ready";
 
@@ -30,6 +25,8 @@ const ActiveRoundStage = ({
 }: ActiveRoundStageProps) => {
   const [entryValue, setEntryValue] = useState<string>("");
   const [entryError, setEntryError] = useState<string>("");
+  const { t, dictionary } = useTranslation();
+  const resolutionLabels = dictionary.activeRound.resolutionLabels;
 
   const challenger = useMemo(
     () => players.find((player) => player.id === round?.dare.challengerId),
@@ -57,14 +54,12 @@ const ActiveRoundStage = ({
       <section className="panel">
         <header className="panel__header">
           <div>
-            <p className="panel__eyebrow">No round active</p>
-            <h2 className="panel__title">Run the countdown</h2>
+            <p className="panel__eyebrow">{t("activeRound.emptyEyebrow")}</p>
+            <h2 className="panel__title">{t("activeRound.emptyTitle")}</h2>
           </div>
         </header>
-        <p className="panel__empty">Set a dare to launch a round of What are the odds?!</p>
-        <p className="panel__hint">
-          Players secretly pick numbers between 1 and the odds. Hit lock to reveal and see who owes the dare.
-        </p>
+        <p className="panel__empty">{t("activeRound.emptyBody")}</p>
+        <p className="panel__hint">{t("activeRound.emptyHint")}</p>
       </section>
     );
   }
@@ -82,12 +77,12 @@ const ActiveRoundStage = ({
     const numericValue = Number(trimmed);
 
     if (!trimmed || !Number.isInteger(numericValue) || Number.isNaN(numericValue)) {
-      setEntryError(`Enter a whole number between 1 and ${round.dare.odds}.`);
+      setEntryError(t("activeRound.errors.wholeNumber", { min: 1, max: round.dare.odds }));
       return;
     }
 
     if (numericValue < 1 || numericValue > round.dare.odds) {
-      setEntryError(`Pick a number between 1 and ${round.dare.odds}.`);
+      setEntryError(t("activeRound.errors.range", { min: 1, max: round.dare.odds }));
       return;
     }
 
@@ -100,15 +95,19 @@ const ActiveRoundStage = ({
     <section className="panel active-round">
       <header className="panel__header">
         <div>
-          <p className="panel__eyebrow">Active dare</p>
-          <h2 className="panel__title">Odds 1 in {round.dare.odds}</h2>
+          <p className="panel__eyebrow">{t("activeRound.eyebrow")}</p>
+          <h2 className="panel__title">{t("activeRound.title", { value: round.dare.odds })}</h2>
         </div>
-        <span className="panel__badge">Round #{round.id.slice(-4)}</span>
+        <span className="panel__badge">{t("activeRound.badge", { id: round.id.slice(-4) })}</span>
       </header>
 
       <div className="active-round__dare">
         <p className="active-round__prompt">{round.dare.description}</p>
-        {round.dare.stakes && <p className="active-round__stakes">Bonus: {round.dare.stakes}</p>}
+        {round.dare.stakes && (
+          <p className="active-round__stakes">
+            {t("activeRound.bonusLabel")}: {round.dare.stakes}
+          </p>
+        )}
       </div>
 
       {round.stage === "collecting" && (
@@ -116,14 +115,16 @@ const ActiveRoundStage = ({
           <div className="active-round__steps">
             <StepCard
               number={1}
-              title={`Pass to ${challenger.icon} ${challenger.name}`}
-              subtitle={`Keep it secret. Pick 1-${round.dare.odds}.`}
+              title={t("activeRound.collecting.passTo", {
+                player: `${challenger.icon} ${challenger.name}`,
+              })}
+              subtitle={t("activeRound.collecting.keepSecret", { min: 1, max: round.dare.odds })}
               complete={Boolean(round.challengerPick)}
             >
               {collectingStep === "challenger" ? (
                 <form className="active-round__form" onSubmit={handleSubmit(challenger.id)}>
                   <label className="active-round__form-label" htmlFor="challenger-pick">
-                    Enter your number between 1 and {round.dare.odds}
+                    {t("activeRound.collecting.formLabel", { min: 1, max: round.dare.odds })}
                   </label>
                   <input
                     id="challenger-pick"
@@ -137,13 +138,13 @@ const ActiveRoundStage = ({
                     autoFocus
                   />
                   {entryError && <p className="active-round__error">{entryError}</p>}
-                  <button className="button" type="submit">
-                    Lock in challenger number
-                  </button>
+                  <button className="button" type="submit">{t("activeRound.collecting.lockChallenger")}</button>
                 </form>
               ) : (
                 <p className="active-round__step-message">
-                  Secret number locked in. Pass the device to {target.icon} {target.name}.
+                  {t("activeRound.collecting.passDevice", {
+                    player: `${target.icon} ${target.name}`,
+                  })}
                 </p>
               )}
             </StepCard>
@@ -151,14 +152,16 @@ const ActiveRoundStage = ({
             {round.challengerPick && (
               <StepCard
                 number={2}
-                title={`Pass to ${target.icon} ${target.name}`}
-                subtitle={`No peeking. Pick 1-${round.dare.odds}.`}
+                title={t("activeRound.collecting.passTo", {
+                  player: `${target.icon} ${target.name}`,
+                })}
+                subtitle={t("activeRound.collecting.noPeek", { min: 1, max: round.dare.odds })}
                 complete={Boolean(round.targetPick)}
               >
                 {collectingStep === "target" ? (
                   <form className="active-round__form" onSubmit={handleSubmit(target.id)}>
                     <label className="active-round__form-label" htmlFor="target-pick">
-                      Enter your number between 1 and {round.dare.odds}
+                      {t("activeRound.collecting.formLabel", { min: 1, max: round.dare.odds })}
                     </label>
                     <input
                       id="target-pick"
@@ -172,14 +175,10 @@ const ActiveRoundStage = ({
                       autoFocus
                     />
                     {entryError && <p className="active-round__error">{entryError}</p>}
-                    <button className="button" type="submit">
-                      Lock in target number
-                    </button>
+                    <button className="button" type="submit">{t("activeRound.collecting.lockTarget")}</button>
                   </form>
                 ) : (
-                  <p className="active-round__step-message">
-                    Secret number locked in. Gather everyone for the reveal.
-                  </p>
+                  <p className="active-round__step-message">{t("activeRound.collecting.readyMessage")}</p>
                 )}
               </StepCard>
             )}
@@ -187,15 +186,13 @@ const ActiveRoundStage = ({
             {picksReady && (
               <StepCard
                 number={3}
-                title="Get ready to reveal"
-                subtitle="No numbers shown until the countdown ends."
+                title={t("activeRound.collecting.readyTitle")}
+                subtitle={t("activeRound.collecting.readySubtitle")}
                 className="active-round__step--highlight"
               >
-                <p className="active-round__step-message">
-                  When everyone&apos;s watching, launch the countdown to show the picks.
-                </p>
+                <p className="active-round__step-message">{t("activeRound.collecting.readyBody")}</p>
                 <button className="button" type="button" onClick={onLock}>
-                  Start countdown
+                  {t("activeRound.collecting.start")}
                 </button>
               </StepCard>
             )}
@@ -203,7 +200,7 @@ const ActiveRoundStage = ({
 
           <footer className="active-round__actions">
             <button className="text-button" type="button" onClick={onCancel}>
-              Cancel round
+              {t("activeRound.collecting.cancel")}
             </button>
           </footer>
         </>
@@ -214,19 +211,19 @@ const ActiveRoundStage = ({
           <header className="active-round__step-header">
             <span className="active-round__step-number">⏱</span>
             <div>
-              <p className="active-round__step-title">Countdown in progress</p>
-              <p className="active-round__step-subtitle">Numbers reveal when the timer hits zero.</p>
+              <p className="active-round__step-title">{t("activeRound.countdown.title")}</p>
+              <p className="active-round__step-subtitle">{t("activeRound.countdown.subtitle")}</p>
             </div>
           </header>
           <div className="active-round__countdown">
             <span>{round.countdown}</span>
-            <p>Reveal in</p>
+            <p>{t("activeRound.countdown.revealIn")}</p>
           </div>
           <footer className="active-round__actions">
             <button className="text-button" type="button" onClick={onCancel}>
-              Abort round
+              {t("activeRound.countdown.abort")}
             </button>
-            <div className="active-round__hint">Hold tight! Countdown is live.</div>
+            <div className="active-round__hint">{t("activeRound.countdown.hint")}</div>
           </footer>
         </div>
       )}
@@ -234,7 +231,7 @@ const ActiveRoundStage = ({
       {round.stage === "reveal" && (
         <div className="active-round__reveal">
           <p className={`active-round__result${matched ? " is-match" : ""}`}>
-            {matched ? "Numbers match! The dare is on." : "They dodged it this time."}
+            {matched ? t("activeRound.reveal.match") : t("activeRound.reveal.miss")}
           </p>
           <div className="active-round__summary">
             <SummaryItem label={`${challenger.icon} ${challenger.name}`} value={round.challengerPick ?? "?"} />
@@ -259,19 +256,19 @@ const ActiveRoundStage = ({
         <div className="active-round__reveal">
           <p className={`active-round__result${round.matched ? " is-match" : ""}`}>
             {round.matched
-              ? `Match! ${target.icon} ${target.name} owes the dare.`
-              : `${target.icon} ${target.name} slips free.`}
+              ? t("activeRound.resolved.match", { target: `${target.icon} ${target.name}` })
+              : t("activeRound.resolved.miss", { target: `${target.icon} ${target.name}` })}
           </p>
           <div className="active-round__summary">
             <SummaryItem label={`${challenger.icon} ${challenger.name}`} value={round.challengerPick ?? "?"} />
             <SummaryItem label={`${target.icon} ${target.name}`} value={round.targetPick ?? "?"} />
           </div>
           <p className="active-round__resolved-note">
-            Outcome: {round.resolution && resolutionLabels[round.resolution]}
+            {t("activeRound.resolved.outcome")} {round.resolution && resolutionLabels[round.resolution]}
           </p>
           <footer className="active-round__actions">
             <button className="button" type="button" onClick={onArchive}>
-              Clear round
+              {t("activeRound.resolved.clear")}
             </button>
           </footer>
         </div>
