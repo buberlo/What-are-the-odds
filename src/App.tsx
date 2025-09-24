@@ -29,13 +29,54 @@ const createPlayer = (name: string, icon: string, color: string): Player => ({
   daresCompleted: 0,
 });
 
+type ExperienceStage = "roster" | "dare" | "round" | "legacy";
+
 const AppContent = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [activeRound, setActiveRound] = useState<ActiveRound | null>(null);
   const [history, setHistory] = useState<RoundHistoryEntry[]>([]);
   const [roundsLaunched, setRoundsLaunched] = useState<number>(0);
+  const [activeStage, setActiveStage] = useState<ExperienceStage>("roster");
+  const [insightOverlay, setInsightOverlay] = useState<"stats" | "guide" | null>(null);
 
   const { t, language, setLanguage, languageLabel, languageOptions, availableLanguages } = useTranslation();
+
+  const stageOrder: ExperienceStage[] = ["roster", "dare", "round", "legacy"];
+
+  const stageMeta = useMemo(
+    () => [
+      {
+        id: "roster" as const,
+        label: t("app.flow.roster.label"),
+        title: t("app.flow.roster.title"),
+        description: t("app.flow.roster.description"),
+      },
+      {
+        id: "dare" as const,
+        label: t("app.flow.dare.label"),
+        title: t("app.flow.dare.title"),
+        description: t("app.flow.dare.description"),
+      },
+      {
+        id: "round" as const,
+        label: t("app.flow.round.label"),
+        title: t("app.flow.round.title"),
+        description: t("app.flow.round.description"),
+      },
+      {
+        id: "legacy" as const,
+        label: t("app.flow.legacy.label"),
+        title: t("app.flow.legacy.title"),
+        description: t("app.flow.legacy.description"),
+      },
+    ],
+    [t],
+  );
+
+  const activeStageIndex = stageOrder.indexOf(activeStage);
+  const activeStageMeta = stageMeta[activeStageIndex] ?? stageMeta[0];
+  const stageProgress = ((activeStageIndex + 1) / stageOrder.length) * 100;
+  const isLastStage = activeStageIndex === stageOrder.length - 1;
 
   const launchRound = (config: DareConfig) => {
     const nextRound: ActiveRound = {
@@ -47,6 +88,7 @@ const AppContent = () => {
     };
     setActiveRound(nextRound);
     setRoundsLaunched((value) => value + 1);
+    setActiveStage("round");
   };
 
   const addPlayer = ({ name, icon, color }: { name: string; icon: string; color: string }) => {
@@ -81,13 +123,16 @@ const AppContent = () => {
 
   const cancelRound = () => {
     setActiveRound(null);
+    setActiveStage("dare");
   };
 
   const archiveRound = () => {
     setActiveRound(null);
+    setActiveStage("legacy");
   };
 
   const resolveRound = (resolution: RoundResolution) => {
+    let resolved = false;
     setActiveRound((current) => {
       if (!current) return current;
       const challengerPick = current.challengerPick ?? 0;
@@ -131,6 +176,7 @@ const AppContent = () => {
         }),
       );
 
+      resolved = true;
       return {
         ...current,
         stage: "resolved",
@@ -138,6 +184,9 @@ const AppContent = () => {
         resolution,
       };
     });
+    if (resolved) {
+      setActiveStage("legacy");
+    }
   };
 
   useEffect(() => {
@@ -171,6 +220,12 @@ const AppContent = () => {
     }
   }, [players, activeRound]);
 
+  useEffect(() => {
+    if (activeStage !== "legacy") {
+      setInsightOverlay(null);
+    }
+  }, [activeStage]);
+
   const heroPlayers = useMemo(() => players.slice(0, 3), [players]);
   const totalDaresCompleted = useMemo(
     () => players.reduce((total, player) => total + player.daresCompleted, 0),
@@ -179,6 +234,76 @@ const AppContent = () => {
 
   const handleLanguageChange = (event: ChangeEvent<HTMLSelectElement>) => {
     setLanguage(event.target.value as Language);
+  };
+
+  const goToStage = (stage: ExperienceStage) => {
+    setActiveStage(stage);
+  };
+
+  const handlePreviousStage = () => {
+    if (activeStageIndex <= 0) return;
+    setActiveStage(stageOrder[activeStageIndex - 1]);
+  };
+
+  const handleNextStage = () => {
+    if (isLastStage) {
+      setActiveStage(stageOrder[0]);
+      return;
+    }
+    setActiveStage(stageOrder[activeStageIndex + 1]);
+  };
+
+  const overlayLabel =
+    insightOverlay === "stats"
+      ? t("app.flow.overlays.statsLabel")
+      : insightOverlay === "guide"
+        ? t("app.flow.overlays.guideLabel")
+        : "";
+
+  const renderStage = () => {
+    switch (activeStage) {
+      case "roster":
+        return <PlayerRoster players={players} onAdd={addPlayer} onRemove={removePlayer} />;
+      case "dare":
+        return <DareComposer players={players} disabled={Boolean(activeRound)} onLaunch={launchRound} />;
+      case "round":
+        return (
+          <ActiveRoundStage
+            round={activeRound}
+            players={players}
+            onUpdatePick={updatePick}
+            onLock={lockRound}
+            onResolve={resolveRound}
+            onCancel={cancelRound}
+            onArchive={archiveRound}
+          />
+        );
+      case "legacy":
+      default:
+        return (
+          <div className="app-legacy">
+            <HistoryPanel history={history} players={players} />
+            <div className="app-legacy__portals">
+              <button
+                type="button"
+                className="app-legacy__portal"
+                onClick={() => setInsightOverlay("stats")}
+                disabled={insightOverlay === "stats"}
+              >
+                <span>{t("app.flow.overlays.statsTrigger")}</span>
+              </button>
+              <button
+                type="button"
+                className="app-legacy__portal"
+                onClick={() => setInsightOverlay("guide")}
+                disabled={insightOverlay === "guide"}
+              >
+                <span>{t("app.flow.overlays.guideTrigger")}</span>
+              </button>
+            </div>
+          </div>
+        );
+    }
   };
 
   return (
@@ -236,27 +361,93 @@ const AppContent = () => {
       </header>
 
       <main className="app-main">
-        <div className="app-grid">
-          <div className="app-grid__column app-grid__column--primary">
-            <ActiveRoundStage
-              round={activeRound}
-              players={players}
-              onUpdatePick={updatePick}
-              onLock={lockRound}
-              onResolve={resolveRound}
-              onCancel={cancelRound}
-              onArchive={archiveRound}
-            />
-            <DareComposer players={players} disabled={Boolean(activeRound)} onLaunch={launchRound} />
-            <HistoryPanel history={history} players={players} />
+        <section className="app-experience">
+          <header className="app-experience__header">
+            <div>
+              <p className="app-experience__eyebrow">{t("app.flow.headline")}</p>
+              <h2 className="app-experience__title">{activeStageMeta.title}</h2>
+            </div>
+            <p className="app-experience__subtitle">{activeStageMeta.description}</p>
+          </header>
+
+          <div className="app-experience__progress" role="presentation">
+            <span style={{ width: `${stageProgress}%` }} />
           </div>
-          <div className="app-grid__column app-grid__column--secondary">
-            <PlayerRoster players={players} onAdd={addPlayer} onRemove={removePlayer} />
-            <StatsPanel players={players} roundsPlayed={roundsLaunched} />
-            <HowToPlayCard />
+
+          <nav className="app-experience__steps" aria-label={t("app.flow.headline")}>
+            {stageMeta.map((meta, index) => {
+              const isActive = meta.id === activeStage;
+              const isComplete = index < activeStageIndex;
+              const stepClass = [
+                "app-experience__step",
+                isActive ? "is-active" : "",
+                isComplete ? "is-complete" : "",
+              ]
+                .filter(Boolean)
+                .join(" ");
+
+              return (
+                <button
+                  key={meta.id}
+                  type="button"
+                  className={stepClass}
+                  onClick={() => goToStage(meta.id)}
+                  aria-current={isActive ? "step" : undefined}
+                  aria-label={t("app.flow.controls.jump", { label: meta.label })}
+                >
+                  <span className="app-experience__step-index">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="app-experience__step-label">{meta.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="app-experience__viewport">
+            <div className={`app-stage app-stage--${activeStage}`}>
+              <span className="app-stage__beam app-stage__beam--one" aria-hidden="true" />
+              <span className="app-stage__beam app-stage__beam--two" aria-hidden="true" />
+              <span className="app-stage__beam app-stage__beam--three" aria-hidden="true" />
+              <div className="app-stage__content">{renderStage()}</div>
+            </div>
+          </div>
+
+          <div className="app-stage__actions">
+            <button
+              type="button"
+              className="button button--ghost"
+              onClick={handlePreviousStage}
+              disabled={activeStageIndex === 0}
+            >
+              {t("app.flow.controls.prev")}
+            </button>
+            <button type="button" className="button" onClick={handleNextStage}>
+              {isLastStage ? t("app.flow.controls.restart") : t("app.flow.controls.next")}
+            </button>
+          </div>
+        </section>
+      </main>
+
+      {insightOverlay && (
+        <div className="app-overlay" role="dialog" aria-modal="true" aria-label={overlayLabel}>
+          <div className="app-overlay__backdrop" aria-hidden="true" />
+          <div className="app-overlay__panel">
+            <button
+              type="button"
+              className="app-overlay__close text-button"
+              onClick={() => setInsightOverlay(null)}
+            >
+              {t("app.flow.controls.closeOverlay")}
+            </button>
+            <div className="app-overlay__content">
+              {insightOverlay === "stats" ? (
+                <StatsPanel players={players} roundsPlayed={roundsLaunched} />
+              ) : (
+                <HowToPlayCard />
+              )}
+            </div>
           </div>
         </div>
-      </main>
+      )}
     </div>
   );
 };
