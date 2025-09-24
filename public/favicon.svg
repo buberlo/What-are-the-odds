@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">What are the odds dice icon</title>
+  <defs>
+    <linearGradient id="diceGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5b21b6" />
+      <stop offset="100%" stop-color="#0ea5e9" />
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="52" height="52" rx="14" fill="url(#diceGradient)" />
+  <rect x="18" y="12" width="34" height="34" rx="10" fill="#ffffff" fill-opacity="0.2" />
+  <rect x="12" y="18" width="34" height="34" rx="10" fill="#0c0a1d" fill-opacity="0.18" />
+  <rect x="16" y="22" width="32" height="32" rx="9" fill="#f8fafc" />
+  <circle cx="28" cy="34" r="3.6" fill="#1e293b" />
+  <circle cx="40" cy="28" r="3.6" fill="#1e293b" />
+  <circle cx="40" cy="40" r="3.6" fill="#1e293b" />
+</svg>
