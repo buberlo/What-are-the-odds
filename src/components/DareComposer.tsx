@@ -32,15 +32,16 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
       return;
     }
 
-    if (!players.some((player) => player.id === challengerId)) {
-      setChallengerId(players[0].id);
+    if (challengerId && !players.some((player) => player.id === challengerId)) {
+      setChallengerId("");
     }
 
-    const fallbackTarget = players.find((player) => player.id !== challengerId)?.id;
-    if (!players.some((player) => player.id === targetId) && fallbackTarget) {
-      setTargetId(fallbackTarget);
-    } else if (challengerId && challengerId === targetId && fallbackTarget) {
-      setTargetId(fallbackTarget);
+    if (targetId && !players.some((player) => player.id === targetId)) {
+      setTargetId("");
+    }
+
+    if (challengerId && targetId && challengerId === targetId) {
+      setTargetId("");
     }
   }, [canPlay, players, challengerId, targetId]);
 
@@ -108,6 +109,9 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
             <label>
               <span>Challenger</span>
               <select value={challengerId} onChange={(event) => setChallengerId(event.target.value)}>
+                <option value="" disabled>
+                  Select a challenger
+                </option>
                 {players.map((player) => (
                   <option key={player.id} value={player.id}>
                     {player.icon} {player.name}
@@ -119,7 +123,7 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
               type="button"
               className="composer__swap"
               onClick={swapPlayers}
-              disabled={disabled}
+              disabled={disabled || !challengerId || !targetId}
               aria-label="Swap challenger and target"
             >
               ⇄
@@ -127,6 +131,9 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
             <label>
               <span>Target</span>
               <select value={targetId} onChange={(event) => setTargetId(event.target.value)}>
+                <option value="" disabled>
+                  Select a target
+                </option>
                 {players
                   .filter((player) => player.id !== challengerId)
                   .map((player) => (

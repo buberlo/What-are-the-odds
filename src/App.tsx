@@ -28,14 +28,8 @@ const createPlayer = (name: string, icon: string, color: string): Player => ({
   daresCompleted: 0,
 });
 
-const initialPlayers: Player[] = [
-  createPlayer("Alex", "🎲", "#7C3AED"),
-  createPlayer("Blair", "⚡️", "#22C55E"),
-  createPlayer("Casey", "🔥", "#F97316"),
-];
-
 const App = () => {
-  const [players, setPlayers] = useState<Player[]>(initialPlayers);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [activeRound, setActiveRound] = useState<ActiveRound | null>(null);
   const [history, setHistory] = useState<RoundHistoryEntry[]>([]);
   const [roundsLaunched, setRoundsLaunched] = useState<number>(0);
@@ -217,6 +211,7 @@ const App = () => {
 
       <main className="app-stack">
         <HowToPlayCard />
+        <PlayerRoster players={players} onAdd={addPlayer} onRemove={removePlayer} />
         <DareComposer players={players} disabled={Boolean(activeRound)} onLaunch={launchRound} />
         <ActiveRoundStage
           round={activeRound}
@@ -227,7 +222,6 @@ const App = () => {
           onCancel={cancelRound}
           onArchive={archiveRound}
         />
-        <PlayerRoster players={players} onAdd={addPlayer} onRemove={removePlayer} />
         <HistoryPanel history={history} players={players} />
         <StatsPanel players={players} roundsPlayed={roundsLaunched} />
       </main>
