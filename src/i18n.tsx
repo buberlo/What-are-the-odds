@@ -32,6 +32,45 @@ const translations = {
           dares: "Dares",
         },
       },
+      flow: {
+        headline: "Immersive play flow",
+        roster: {
+          label: "Crew setup",
+          title: "Assemble the crew",
+          description: "Add every player, assign colors and icons, and hype the reveal energy.",
+        },
+        dare: {
+          label: "Dare forge",
+          title: "Build the dare",
+          description:
+            "Pick challenger and target, tune the odds, and add a sweetener before launch.",
+        },
+        round: {
+          label: "Countdown arena",
+          title: "Run the showdown",
+          description:
+            "Collect the secret picks, launch the countdown, and resolve the dare with style.",
+        },
+        legacy: {
+          label: "Afterglow",
+          title: "Relive the highlights",
+          description:
+            "Review history, open the stats spotlight, or revisit the how-to guide.",
+        },
+        controls: {
+          prev: "Previous",
+          next: "Next stage",
+          restart: "Restart flow",
+          jump: "Jump to {{label}}",
+          closeOverlay: "Close portal",
+        },
+        overlays: {
+          statsLabel: "Session stats spotlight",
+          guideLabel: "How to play walkthrough",
+          statsTrigger: "Open stats spotlight",
+          guideTrigger: "Open how-to guide",
+        },
+      },
     },
     howTo: {
       eyebrow: "New to the game?",
@@ -213,6 +252,46 @@ const translations = {
           dares: "Dares",
         },
       },
+      flow: {
+        headline: "Party flow control",
+        roster: {
+          label: "Crew muster",
+          title: "Rally the crew",
+          description:
+            "Add every legend, pick their colours and emoji, and set the vibe before things kick off.",
+        },
+        dare: {
+          label: "Dare forge",
+          title: "Spin the dare",
+          description:
+            "Lock in the stirrer and target, tweak the odds, and chuck in a sweetener before launch.",
+        },
+        round: {
+          label: "Countdown pit",
+          title: "Run the showdown",
+          description:
+            "Sneak the secret picks, fire the countdown, and see who owes the dare.",
+        },
+        legacy: {
+          label: "Afterglow",
+          title: "Relive the highlights",
+          description:
+            "Scroll the history, pop open the stats spotlight, or re-read the how-to guide.",
+        },
+        controls: {
+          prev: "Back",
+          next: "Next stop",
+          restart: "Loop back to start",
+          jump: "Skip to {{label}}",
+          closeOverlay: "Shut the portal",
+        },
+        overlays: {
+          statsLabel: "Stats spotlight",
+          guideLabel: "How-to walkthrough",
+          statsTrigger: "Open stats spotlight",
+          guideTrigger: "Open how-to guide",
+        },
+      },
     },
     howTo: {
       eyebrow: "First rodeo?",
@@ -392,6 +471,46 @@ const translations = {
           players: "Spieler:innen",
           rounds: "Runden",
           dares: "Mutproben",
+        },
+      },
+      flow: {
+        headline: "Geführter Spielablauf",
+        roster: {
+          label: "Crew vorbereiten",
+          title: "Team zusammenstellen",
+          description:
+            "Füge alle Mitspielenden hinzu, wähle Farben und Emojis und bringe Stimmung in die Runde.",
+        },
+        dare: {
+          label: "Mutprobe schmieden",
+          title: "Mutprobe planen",
+          description:
+            "Lege Herausfordernde und Zielperson fest, passe die Odds an und ergänze einen Bonus vor dem Start.",
+        },
+        round: {
+          label: "Countdown-Arena",
+          title: "Showdown starten",
+          description:
+            "Sammle die geheimen Zahlen, starte den Countdown und löse die Mutprobe auf.",
+        },
+        legacy: {
+          label: "Nachglühen",
+          title: "Highlights erneut erleben",
+          description:
+            "Sieh dir den Verlauf an, öffne das Statistik-Spotlight oder lies die Anleitung erneut.",
+        },
+        controls: {
+          prev: "Zurück",
+          next: "Weiter",
+          restart: "Flow neu starten",
+          jump: "Springe zu {{label}}",
+          closeOverlay: "Portal schließen",
+        },
+        overlays: {
+          statsLabel: "Statistik-Spotlight",
+          guideLabel: "Spielanleitung",
+          statsTrigger: "Statistiken öffnen",
+          guideTrigger: "Anleitung öffnen",
         },
       },
     },
