@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import ActiveRoundStage from "./components/ActiveRoundStage";
 import DareComposer from "./components/DareComposer";
 import HistoryPanel from "./components/HistoryPanel";
@@ -73,10 +73,21 @@ const AppContent = () => {
     [t],
   );
 
+  const stageCompletion = useMemo<Record<ExperienceStage, boolean>>(
+    () => ({
+      roster: players.length >= 2,
+      dare: Boolean(activeRound),
+      round: Boolean(activeRound && activeRound.stage === "resolved") || history.length > 0,
+      legacy: history.length > 0,
+    }),
+    [players.length, activeRound, history.length],
+  );
+
   const activeStageIndex = stageOrder.indexOf(activeStage);
   const activeStageMeta = stageMeta[activeStageIndex] ?? stageMeta[0];
   const stageProgress = ((activeStageIndex + 1) / stageOrder.length) * 100;
   const isLastStage = activeStageIndex === stageOrder.length - 1;
+  const canAdvance = isLastStage || stageCompletion[activeStage];
 
   const launchRound = (config: DareConfig) => {
     const nextRound: ActiveRound = {
@@ -99,27 +110,28 @@ const AppContent = () => {
     setPlayers((current) => current.filter((player) => player.id !== id));
   };
 
-  const updatePick = (playerId: string, value: number) => {
+  const updatePick = useCallback((playerId: string, value: number) => {
     setActiveRound((current) => {
       if (!current || current.stage !== "collecting") return current;
       if (![current.dare.challengerId, current.dare.targetId].includes(playerId)) {
         return current;
       }
       if (value < 1 || value > current.dare.odds) return current;
-      if (playerId === current.dare.challengerId) {
-        return { ...current, challengerPick: value };
-      }
-      return { ...current, targetPick: value };
-    });
-  };
 
-  const lockRound = () => {
-    setActiveRound((current) => {
-      if (!current) return current;
-      if (!current.challengerPick || !current.targetPick) return current;
-      return { ...current, stage: "countdown", countdown: 3 };
+      const challengerPick =
+        playerId === current.dare.challengerId ? value : current.challengerPick;
+      const targetPick =
+        playerId === current.dare.targetId ? value : current.targetPick;
+      const picksReady = Boolean(challengerPick && targetPick);
+
+      return {
+        ...current,
+        challengerPick,
+        targetPick,
+        ...(picksReady ? { stage: "countdown", countdown: 3 } : {}),
+      };
     });
-  };
+  }, []);
 
   const cancelRound = () => {
     setActiveRound(null);
@@ -237,6 +249,14 @@ const AppContent = () => {
   };
 
   const goToStage = (stage: ExperienceStage) => {
+    const targetIndex = stageOrder.indexOf(stage);
+    if (targetIndex === -1 || targetIndex === activeStageIndex) return;
+    if (targetIndex > 0) {
+      const previousStage = stageOrder[targetIndex - 1];
+      if (!stageCompletion[previousStage]) {
+        return;
+      }
+    }
     setActiveStage(stage);
   };
 
@@ -246,6 +266,7 @@ const AppContent = () => {
   };
 
   const handleNextStage = () => {
+    if (!canAdvance) return;
     if (isLastStage) {
       setActiveStage(stageOrder[0]);
       return;
@@ -272,7 +293,6 @@ const AppContent = () => {
             round={activeRound}
             players={players}
             onUpdatePick={updatePick}
-            onLock={lockRound}
             onResolve={resolveRound}
             onCancel={cancelRound}
             onArchive={archiveRound}
@@ -377,11 +397,14 @@ const AppContent = () => {
           <nav className="app-experience__steps" aria-label={t("app.flow.headline")}>
             {stageMeta.map((meta, index) => {
               const isActive = meta.id === activeStage;
-              const isComplete = index < activeStageIndex;
+              const isComplete = stageCompletion[meta.id] && index < activeStageIndex;
+              const previousStage = stageOrder[index - 1];
+              const isLocked = index > 0 && !stageCompletion[previousStage];
               const stepClass = [
                 "app-experience__step",
                 isActive ? "is-active" : "",
                 isComplete ? "is-complete" : "",
+                isLocked ? "is-locked" : "",
               ]
                 .filter(Boolean)
                 .join(" ");
@@ -391,9 +414,15 @@ const AppContent = () => {
                   key={meta.id}
                   type="button"
                   className={stepClass}
-                  onClick={() => goToStage(meta.id)}
+                  onClick={() => {
+                    if (!isLocked) {
+                      goToStage(meta.id);
+                    }
+                  }}
                   aria-current={isActive ? "step" : undefined}
+                  aria-disabled={isLocked ? true : undefined}
                   aria-label={t("app.flow.controls.jump", { label: meta.label })}
+                  disabled={isLocked}
                 >
                   <span className="app-experience__step-index">{String(index + 1).padStart(2, "0")}</span>
                   <span className="app-experience__step-label">{meta.label}</span>
@@ -420,7 +449,12 @@ const AppContent = () => {
             >
               {t("app.flow.controls.prev")}
             </button>
-            <button type="button" className="button" onClick={handleNextStage}>
+            <button
+              type="button"
+              className="button"
+              onClick={handleNextStage}
+              disabled={!canAdvance}
+            >
               {isLastStage ? t("app.flow.controls.restart") : t("app.flow.controls.next")}
             </button>
           </div>
