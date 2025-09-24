@@ -14,6 +14,128 @@ import {
   RoundResolution,
 } from "./types";
 
+const STORAGE_KEY = "what-are-the-odds/state";
+
+type PersistedState = {
+  players: Player[];
+  history: RoundHistoryEntry[];
+  roundsLaunched: number;
+};
+
+const DEFAULT_PERSISTED_STATE: PersistedState = {
+  players: [],
+  history: [],
+  roundsLaunched: 0,
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const isValidDareConfig = (value: unknown): value is DareConfig => {
+  if (!isRecord(value)) return false;
+  const { challengerId, targetId, description, odds, stakes } = value;
+  if (
+    typeof challengerId !== "string" ||
+    typeof targetId !== "string" ||
+    typeof description !== "string" ||
+    typeof odds !== "number" ||
+    !Number.isFinite(odds) ||
+    odds < 1
+  ) {
+    return false;
+  }
+  if (stakes !== undefined && typeof stakes !== "string") {
+    return false;
+  }
+  return true;
+};
+
+const isValidPlayer = (value: unknown): value is Player => {
+  if (!isRecord(value)) return false;
+  const { id, name, icon, color, wins, losses, daresCompleted } = value;
+  return (
+    typeof id === "string" &&
+    typeof name === "string" &&
+    typeof icon === "string" &&
+    typeof color === "string" &&
+    typeof wins === "number" &&
+    Number.isFinite(wins) &&
+    typeof losses === "number" &&
+    Number.isFinite(losses) &&
+    typeof daresCompleted === "number" &&
+    Number.isFinite(daresCompleted)
+  );
+};
+
+const isValidHistoryEntry = (value: unknown): value is RoundHistoryEntry => {
+  if (!isRecord(value)) return false;
+  const { id, dare, challengerPick, targetPick, matched, resolution, timestamp } = value;
+  if (
+    typeof id !== "string" ||
+    !isValidDareConfig(dare) ||
+    typeof challengerPick !== "number" ||
+    !Number.isFinite(challengerPick) ||
+    typeof targetPick !== "number" ||
+    !Number.isFinite(targetPick) ||
+    typeof matched !== "boolean" ||
+    typeof resolution !== "string" ||
+    typeof timestamp !== "number" ||
+    !Number.isFinite(timestamp)
+  ) {
+    return false;
+  }
+  return ["completed", "declined", "partial"].includes(resolution);
+};
+
+let cachedPersistedState: PersistedState | null = null;
+
+const loadPersistedState = (): PersistedState => {
+  if (cachedPersistedState) {
+    return cachedPersistedState;
+  }
+
+  if (typeof window === "undefined") {
+    cachedPersistedState = { ...DEFAULT_PERSISTED_STATE };
+    return cachedPersistedState;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      cachedPersistedState = { ...DEFAULT_PERSISTED_STATE };
+      return cachedPersistedState;
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!isRecord(parsed)) {
+      cachedPersistedState = { ...DEFAULT_PERSISTED_STATE };
+      return cachedPersistedState;
+    }
+
+    const players = Array.isArray(parsed.players)
+      ? parsed.players.filter(isValidPlayer)
+      : DEFAULT_PERSISTED_STATE.players;
+    const history = Array.isArray(parsed.history)
+      ? parsed.history.filter(isValidHistoryEntry)
+      : DEFAULT_PERSISTED_STATE.history;
+    const roundsSource = parsed.roundsLaunched;
+    const roundsLaunched =
+      typeof roundsSource === "number" && Number.isFinite(roundsSource)
+        ? Math.max(history.length, Math.max(0, Math.floor(roundsSource)))
+        : Math.max(history.length, DEFAULT_PERSISTED_STATE.roundsLaunched);
+
+    cachedPersistedState = {
+      players,
+      history,
+      roundsLaunched,
+    };
+    return cachedPersistedState;
+  } catch (error) {
+    cachedPersistedState = { ...DEFAULT_PERSISTED_STATE };
+    return cachedPersistedState;
+  }
+};
+
 const makeId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -32,12 +154,17 @@ const createPlayer = (name: string, icon: string, color: string): Player => ({
 type ExperienceStage = "roster" | "dare" | "round" | "legacy";
 
 const AppContent = () => {
-  const [players, setPlayers] = useState<Player[]>([]);
+  const [persistedState] = useState<PersistedState>(loadPersistedState);
+  const [players, setPlayers] = useState<Player[]>(persistedState.players);
   const [activeRound, setActiveRound] = useState<ActiveRound | null>(null);
-  const [history, setHistory] = useState<RoundHistoryEntry[]>([]);
-  const [roundsLaunched, setRoundsLaunched] = useState<number>(0);
-  const [activeStage, setActiveStage] = useState<ExperienceStage>("roster");
-  const [insightOverlay, setInsightOverlay] = useState<"stats" | "guide" | null>(null);
+  const [history, setHistory] = useState<RoundHistoryEntry[]>(persistedState.history);
+  const [roundsLaunched, setRoundsLaunched] = useState<number>(persistedState.roundsLaunched);
+  const [activeStage, setActiveStage] = useState<ExperienceStage>(
+    persistedState.history.length > 0 ? "legacy" : "roster",
+  );
+  const [insightOverlay, setInsightOverlay] = useState<"stats" | "guide" | null>(
+    persistedState.history.length > 0 ? "stats" : null,
+  );
 
   const { t, language, setLanguage, languageLabel, languageOptions, availableLanguages } = useTranslation();
 
@@ -238,6 +365,24 @@ const AppContent = () => {
     }
   }, [activeStage, insightOverlay]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const stateToPersist: PersistedState = {
+      players,
+      history,
+      roundsLaunched,
+    };
+
+    cachedPersistedState = stateToPersist;
+
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToPersist));
+    } catch {
+      // Ignore write errors (e.g. private browsing, quota exceeded)
+    }
+  }, [players, history, roundsLaunched]);
+
   const heroPlayers = useMemo(() => players.slice(0, 3), [players]);
   const totalDaresCompleted = useMemo(
     () => players.reduce((total, player) => total + player.daresCompleted, 0),
@@ -281,6 +426,11 @@ const AppContent = () => {
         ? t("app.flow.overlays.guideLabel")
         : "";
 
+  const openTrophyRoom = useCallback(() => {
+    setActiveStage((current) => (current === "legacy" ? current : "legacy"));
+    setInsightOverlay("stats");
+  }, [setActiveStage, setInsightOverlay]);
+
   const renderStage = () => {
     switch (activeStage) {
       case "roster":
@@ -307,7 +457,7 @@ const AppContent = () => {
               <button
                 type="button"
                 className="app-legacy__portal"
-                onClick={() => setInsightOverlay("stats")}
+                onClick={openTrophyRoom}
                 disabled={insightOverlay === "stats"}
               >
                 <span>{t("app.flow.overlays.statsTrigger")}</span>
@@ -342,7 +492,7 @@ const AppContent = () => {
               <button
                 type="button"
                 className="app-header__trophy-link"
-                onClick={() => setInsightOverlay("stats")}
+                onClick={openTrophyRoom}
                 disabled={insightOverlay === "stats"}
               >
                 {t("app.flow.overlays.statsLink")}
