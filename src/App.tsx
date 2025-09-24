@@ -175,17 +175,22 @@ const App = () => {
   }, [players, activeRound]);
 
   const heroPlayers = useMemo(() => players.slice(0, 3), [players]);
+  const totalDaresCompleted = useMemo(
+    () => players.reduce((total, player) => total + player.daresCompleted, 0),
+    [players],
+  );
 
   return (
     <div className="app-shell">
       <header className="app-hero">
-        <div className="app-hero__content">
-          <p className="app-hero__eyebrow">Party game dashboard</p>
+        <div className="app-hero__heading">
+          <p className="app-hero__eyebrow">Party odds tracker</p>
           <h1 className="app-hero__title">What are the odds?!</h1>
           <p className="app-hero__subtitle">
-            Run dramatic odds rounds, track bragging rights, and keep the energy high. Built for living rooms,
-            rooftop hangs, and friendly rivalries.
+            Launch dares, collect the secret picks, and reveal the outcome without slowing down the night.
           </p>
+        </div>
+        <div className="app-hero__footer">
           <div className="app-hero__avatars">
             {heroPlayers.map((player) => (
               <span key={player.id} style={{ background: player.color }}>
@@ -193,33 +198,38 @@ const App = () => {
               </span>
             ))}
           </div>
+          <dl className="app-hero__quick">
+            <div>
+              <dt>Players</dt>
+              <dd>{players.length}</dd>
+            </div>
+            <div>
+              <dt>Rounds</dt>
+              <dd>{roundsLaunched}</dd>
+            </div>
+            <div>
+              <dt>Dares</dt>
+              <dd>{totalDaresCompleted}</dd>
+            </div>
+          </dl>
         </div>
-        <div className="app-hero__badge">Fresh build</div>
       </header>
 
-      <main className="app-grid">
-        <div className="app-column">
-          <PlayerRoster players={players} onAdd={addPlayer} onRemove={removePlayer} />
-          <StatsPanel players={players} roundsPlayed={roundsLaunched} />
-        </div>
-
-        <div className="app-column app-column--wide">
-          <DareComposer players={players} disabled={Boolean(activeRound)} onLaunch={launchRound} />
-          <ActiveRoundStage
-            round={activeRound}
-            players={players}
-            onUpdatePick={updatePick}
-            onLock={lockRound}
-            onResolve={resolveRound}
-            onCancel={cancelRound}
-            onArchive={archiveRound}
-          />
-        </div>
-
-        <div className="app-column">
-          <HistoryPanel history={history} players={players} />
-          <HowToPlayCard />
-        </div>
+      <main className="app-stack">
+        <DareComposer players={players} disabled={Boolean(activeRound)} onLaunch={launchRound} />
+        <ActiveRoundStage
+          round={activeRound}
+          players={players}
+          onUpdatePick={updatePick}
+          onLock={lockRound}
+          onResolve={resolveRound}
+          onCancel={cancelRound}
+          onArchive={archiveRound}
+        />
+        <PlayerRoster players={players} onAdd={addPlayer} onRemove={removePlayer} />
+        <HistoryPanel history={history} players={players} />
+        <StatsPanel players={players} roundsPlayed={roundsLaunched} />
+        <HowToPlayCard />
       </main>
     </div>
   );
