@@ -216,6 +216,7 @@ const App = () => {
       </header>
 
       <main className="app-stack">
+        <HowToPlayCard />
         <DareComposer players={players} disabled={Boolean(activeRound)} onLaunch={launchRound} />
         <ActiveRoundStage
           round={activeRound}
@@ -229,7 +230,6 @@ const App = () => {
         <PlayerRoster players={players} onAdd={addPlayer} onRemove={removePlayer} />
         <HistoryPanel history={history} players={players} />
         <StatsPanel players={players} roundsPlayed={roundsLaunched} />
-        <HowToPlayCard />
       </main>
     </div>
   );
