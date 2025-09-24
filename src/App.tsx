@@ -182,10 +182,17 @@ const AppContent = () => {
   };
 
   return (
-    <div className="app-shell">
-      <header className="app-hero">
-        <div className="app-hero__language">
-          <label className="app-hero__language-control">
+    <div className="app-frame">
+      <header className="app-header">
+        <div className="app-header__bar">
+          <div className="app-logo">
+            <span className="app-logo__mark">🎲</span>
+            <div className="app-logo__text">
+              <span className="app-logo__title">What are the odds?!</span>
+              <span className="app-logo__tagline">{t("app.hero.eyebrow")}</span>
+            </div>
+          </div>
+          <label className="app-header__language">
             <span>{languageLabel}</span>
             <select value={language} onChange={handleLanguageChange}>
               {availableLanguages.map((code) => (
@@ -196,20 +203,22 @@ const AppContent = () => {
             </select>
           </label>
         </div>
-        <div className="app-hero__heading">
-          <p className="app-hero__eyebrow">{t("app.hero.eyebrow")}</p>
-          <h1 className="app-hero__title">{t("app.hero.title")}</h1>
-          <p className="app-hero__subtitle">{t("app.hero.subtitle")}</p>
-        </div>
-        <div className="app-hero__footer">
-          <div className="app-hero__avatars">
-            {heroPlayers.map((player) => (
-              <span key={player.id} style={{ background: player.color }}>
-                {player.icon}
-              </span>
-            ))}
+        <div className="app-header__body">
+          <div className="app-header__copy">
+            <p className="app-header__eyebrow">{t("app.hero.eyebrow")}</p>
+            <h1 className="app-header__title">{t("app.hero.title")}</h1>
+            <p className="app-header__subtitle">{t("app.hero.subtitle")}</p>
+            {heroPlayers.length > 0 && (
+              <div className="app-header__avatars" aria-label={t("app.hero.quickStats.players")}>
+                {heroPlayers.map((player) => (
+                  <span key={player.id} style={{ background: player.color }}>
+                    {player.icon}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
-          <dl className="app-hero__quick">
+          <dl className="app-header__stats">
             <div>
               <dt>{t("app.hero.quickStats.players")}</dt>
               <dd>{players.length}</dd>
@@ -226,21 +235,27 @@ const AppContent = () => {
         </div>
       </header>
 
-      <main className="app-stack">
-        <HowToPlayCard />
-        <PlayerRoster players={players} onAdd={addPlayer} onRemove={removePlayer} />
-        <DareComposer players={players} disabled={Boolean(activeRound)} onLaunch={launchRound} />
-        <ActiveRoundStage
-          round={activeRound}
-          players={players}
-          onUpdatePick={updatePick}
-          onLock={lockRound}
-          onResolve={resolveRound}
-          onCancel={cancelRound}
-          onArchive={archiveRound}
-        />
-        <HistoryPanel history={history} players={players} />
-        <StatsPanel players={players} roundsPlayed={roundsLaunched} />
+      <main className="app-main">
+        <div className="app-grid">
+          <div className="app-grid__column app-grid__column--primary">
+            <ActiveRoundStage
+              round={activeRound}
+              players={players}
+              onUpdatePick={updatePick}
+              onLock={lockRound}
+              onResolve={resolveRound}
+              onCancel={cancelRound}
+              onArchive={archiveRound}
+            />
+            <DareComposer players={players} disabled={Boolean(activeRound)} onLaunch={launchRound} />
+            <HistoryPanel history={history} players={players} />
+          </div>
+          <div className="app-grid__column app-grid__column--secondary">
+            <PlayerRoster players={players} onAdd={addPlayer} onRemove={removePlayer} />
+            <StatsPanel players={players} roundsPlayed={roundsLaunched} />
+            <HowToPlayCard />
+          </div>
+        </div>
       </main>
     </div>
   );
