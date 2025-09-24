@@ -6,6 +6,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
+import { inspirationPrompts } from "./data/prompts";
 
 export type Language = "en" | "de" | "au";
 
@@ -110,14 +111,7 @@ const translations = {
         stretch: "Stretch",
         longShot: "Long shot",
       },
-      prompts: [
-        "Sing the chorus of your favorite guilty-pleasure song",
-        "Do a dramatic reading of the last text you sent",
-        "Balance a cup on your head for ten seconds",
-        "Let the challenger redesign your avatar",
-        "Speak in rhyme for the next round",
-        "Share a surprising fun fact about yourself",
-      ],
+      prompts: [...inspirationPrompts],
     },
     activeRound: {
       emptyEyebrow: "No round active",
@@ -298,14 +292,7 @@ const translations = {
         stretch: "Bit of a stretch",
         longShot: "Total long shot",
       },
-      prompts: [
-        "Belt out the chorus of your nanna's favourite pub song",
-        "Dramatically read the last spicy meme you sent",
-        "Balance a sausage roll on your head for ten seconds",
-        "Let the challenger redesign your avatar, mullet and all",
-        "Speak only in rhyming slang next round",
-        "Drop a bonkers fun fact about yourself",
-      ],
+      prompts: [...inspirationPrompts],
     },
     activeRound: {
       emptyEyebrow: "No round on the boil",
@@ -486,14 +473,7 @@ const translations = {
         stretch: "Grenzwertig",
         longShot: "Glückstreffer",
       },
-      prompts: [
-        "Singe den Refrain deines liebsten Guilty-Pleasure-Songs",
-        "Lies die letzte gesendete Nachricht dramatisch vor",
-        "Balanciere zehn Sekunden lang einen Becher auf deinem Kopf",
-        "Lass die herausfordernde Person dein Avatar neu gestalten",
-        "Sprich in der nächsten Runde nur in Reimen",
-        "Verrate einen überraschenden Fun-Fact über dich",
-      ],
+      prompts: [...inspirationPrompts],
     },
     activeRound: {
       emptyEyebrow: "Keine Runde aktiv",
