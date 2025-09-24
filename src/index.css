@@ -929,16 +929,113 @@ textarea {
   font-size: 0.85rem;
 }
 
-.howto__steps {
-  margin: 0;
-  padding-left: 20px;
+.howto__carousel {
   display: grid;
-  gap: 10px;
-  color: var(--text-secondary);
+  gap: 16px;
 }
 
-.howto__steps li {
+.howto__progress {
+  display: grid;
+  gap: 6px;
+}
+
+.howto__progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(148, 163, 184, 0.18);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.howto__progress-bar {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  transition: width 0.35s ease;
+}
+
+.howto__progress-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--text-muted);
+}
+
+.howto__slide {
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.18);
+  padding: 22px;
+  display: grid;
+  gap: 12px;
+  min-height: 176px;
+  transition: transform 0.35s ease, opacity 0.3s ease;
+}
+
+.howto__slide--advancing {
+  opacity: 0.55;
+  transform: translateX(-6px);
+}
+
+.howto__slide-eyebrow {
+  margin: 0;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--text-muted);
+}
+
+.howto__slide-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.howto__slide-copy {
+  margin: 0;
   font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.howto__actions {
+  margin-top: 4px;
+}
+
+.howto__complete {
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(139, 92, 246, 0.32);
+  background: rgba(67, 56, 202, 0.35);
+  padding: 24px;
+  display: grid;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.howto__complete::after {
+  content: "";
+  position: absolute;
+  inset: -40% auto auto 30%;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle at center, rgba(139, 92, 246, 0.35), transparent 70%);
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.howto__complete-title {
+  margin: 0;
+  font-size: 1.22rem;
+  font-weight: 600;
+}
+
+.howto__complete-copy {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
 }
 
 .howto__tip {
