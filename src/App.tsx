@@ -233,10 +233,10 @@ const AppContent = () => {
   }, [players, activeRound]);
 
   useEffect(() => {
-    if (activeStage !== "legacy") {
+    if (activeStage !== "legacy" && insightOverlay === "stats") {
       setInsightOverlay(null);
     }
-  }, [activeStage]);
+  }, [activeStage, insightOverlay]);
 
   const heroPlayers = useMemo(() => players.slice(0, 3), [players]);
   const totalDaresCompleted = useMemo(
@@ -312,14 +312,6 @@ const AppContent = () => {
               >
                 <span>{t("app.flow.overlays.statsTrigger")}</span>
               </button>
-              <button
-                type="button"
-                className="app-legacy__portal"
-                onClick={() => setInsightOverlay("guide")}
-                disabled={insightOverlay === "guide"}
-              >
-                <span>{t("app.flow.overlays.guideTrigger")}</span>
-              </button>
             </div>
           </div>
         );
@@ -337,16 +329,26 @@ const AppContent = () => {
               <span className="app-logo__tagline">{t("app.hero.eyebrow")}</span>
             </div>
           </div>
-          <label className="app-header__language">
-            <span>{languageLabel}</span>
-            <select value={language} onChange={handleLanguageChange}>
-              {availableLanguages.map((code) => (
-                <option key={code} value={code}>
-                  {languageOptions[code]}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="app-header__actions">
+            <button
+              type="button"
+              className="text-button app-header__howto"
+              onClick={() => setInsightOverlay("guide")}
+              disabled={insightOverlay === "guide"}
+            >
+              {t("app.flow.overlays.guideLink")}
+            </button>
+            <label className="app-header__language">
+              <span>{languageLabel}</span>
+              <select value={language} onChange={handleLanguageChange}>
+                {availableLanguages.map((code) => (
+                  <option key={code} value={code}>
+                    {languageOptions[code]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
         <div className="app-header__body">
           <div className="app-header__copy">

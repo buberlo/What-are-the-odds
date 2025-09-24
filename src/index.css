@@ -282,6 +282,40 @@ button {
   min-width: 160px;
 }
 
+.app-header__actions {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+}
+
+.app-header__howto {
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(10, 132, 255, 0.35);
+  box-shadow: 0 12px 26px rgba(10, 132, 255, 0.22);
+}
+
+.app-header__howto:hover,
+.app-header__howto:focus-visible {
+  background: rgba(10, 132, 255, 0.16);
+  box-shadow: 0 16px 32px rgba(10, 132, 255, 0.28);
+}
+
+.app-header__howto:disabled {
+  opacity: 0.65;
+  box-shadow: none;
+  cursor: default;
+}
+
+@media (min-width: 720px) {
+  .app-header__actions {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+}
+
 .app-header__body {
   display: grid;
   gap: 36px;

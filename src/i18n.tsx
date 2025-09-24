@@ -55,7 +55,7 @@ const translations = {
           label: "Afterglow",
           title: "Relive the highlights",
           description:
-            "Review history, open the stats spotlight, or revisit the how-to guide.",
+            "Review history, open the stats spotlight, and use the header link anytime for the how-to walkthrough.",
         },
         controls: {
           prev: "Previous",
@@ -67,6 +67,7 @@ const translations = {
         overlays: {
           statsLabel: "Session stats spotlight",
           guideLabel: "How to play walkthrough",
+          guideLink: "How to play",
           statsTrigger: "Open stats spotlight",
           guideTrigger: "Open how-to guide",
         },
@@ -276,7 +277,7 @@ const translations = {
           label: "Afterglow",
           title: "Relive the highlights",
           description:
-            "Scroll the history, pop open the stats spotlight, or re-read the how-to guide.",
+            "Scroll the history, pop open the stats spotlight, and tap the header link anytime for the how-to walkthrough.",
         },
         controls: {
           prev: "Back",
@@ -288,6 +289,7 @@ const translations = {
         overlays: {
           statsLabel: "Stats spotlight",
           guideLabel: "How-to walkthrough",
+          guideLink: "How-to guide",
           statsTrigger: "Open stats spotlight",
           guideTrigger: "Open how-to guide",
         },
@@ -497,7 +499,7 @@ const translations = {
           label: "Nachglühen",
           title: "Highlights erneut erleben",
           description:
-            "Sieh dir den Verlauf an, öffne das Statistik-Spotlight oder lies die Anleitung erneut.",
+            "Sieh dir den Verlauf an, öffne das Statistik-Spotlight und nutze den Link im Header jederzeit für die Anleitung.",
         },
         controls: {
           prev: "Zurück",
@@ -509,6 +511,7 @@ const translations = {
         overlays: {
           statsLabel: "Statistik-Spotlight",
           guideLabel: "Spielanleitung",
+          guideLink: "Anleitung",
           statsTrigger: "Statistiken öffnen",
           guideTrigger: "Anleitung öffnen",
         },
