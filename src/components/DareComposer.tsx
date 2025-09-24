@@ -8,6 +8,15 @@ interface DareComposerProps {
   onLaunch: (config: DareConfig) => void;
 }
 
+const shufflePrompts = (items: readonly string[]) => {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+  return copy;
+};
+
 const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
   const { t, dictionary } = useTranslation();
   const [challengerId, setChallengerId] = useState<string>("");
@@ -15,6 +24,7 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
   const [description, setDescription] = useState<string>("");
   const [stakes, setStakes] = useState<string>("");
   const [odds, setOdds] = useState<number>(6);
+  const [promptQueue, setPromptQueue] = useState<string[]>([]);
 
   const canPlay = players.length >= 2;
   const prompts = dictionary.composer.prompts;
@@ -67,10 +77,25 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
     setOdds(6);
   };
 
+  useEffect(() => {
+    setPromptQueue([]);
+  }, [prompts]);
+
   const randomizePrompt = () => {
-    const candidates = prompts.filter((prompt) => prompt !== description.trim());
-    const choice = candidates[Math.floor(Math.random() * candidates.length)];
-    setDescription(choice ?? "");
+    setPromptQueue((currentQueue) => {
+      let nextQueue = currentQueue;
+      if (nextQueue.length === 0) {
+        const trimmed = description.trim();
+        const available = trimmed
+          ? prompts.filter((prompt) => prompt !== trimmed)
+          : prompts;
+        nextQueue = shufflePrompts(available);
+      }
+
+      const [nextPrompt, ...rest] = nextQueue;
+      setDescription(nextPrompt ?? "");
+      return rest;
+    });
   };
 
   const swapPlayers = () => {
