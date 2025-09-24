@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { ActiveRound, Player, RoundResolution } from "../types";
 
 interface ActiveRoundStageProps {
@@ -17,6 +17,8 @@ const resolutionLabels: Record<RoundResolution, string> = {
   partial: "Remixed dare",
 };
 
+type CollectingStep = "challenger" | "target" | "ready";
+
 const ActiveRoundStage = ({
   round,
   players,
@@ -26,6 +28,9 @@ const ActiveRoundStage = ({
   onCancel,
   onArchive,
 }: ActiveRoundStageProps) => {
+  const [entryValue, setEntryValue] = useState<string>("");
+  const [entryError, setEntryError] = useState<string>("");
+
   const challenger = useMemo(
     () => players.find((player) => player.id === round?.dare.challengerId),
     [players, round?.dare.challengerId],
@@ -34,6 +39,18 @@ const ActiveRoundStage = ({
     () => players.find((player) => player.id === round?.dare.targetId),
     [players, round?.dare.targetId],
   );
+
+  const collectingStep = useMemo<CollectingStep | null>(() => {
+    if (!round || round.stage !== "collecting") return null;
+    if (!round.challengerPick) return "challenger";
+    if (!round.targetPick) return "target";
+    return "ready";
+  }, [round]);
+
+  useEffect(() => {
+    setEntryValue("");
+    setEntryError("");
+  }, [round?.id, collectingStep]);
 
   if (!round || !challenger || !target) {
     return (
@@ -52,14 +69,32 @@ const ActiveRoundStage = ({
     );
   }
 
-  const challengerPick = round.challengerPick ?? 0;
-  const targetPick = round.targetPick ?? 0;
   const picksReady = Boolean(round.challengerPick && round.targetPick);
-  const picksLocked = round.stage !== "collecting";
   const revealVisible = round.stage === "reveal" || round.stage === "resolved";
   const isResolved = round.stage === "resolved";
-
   const matched = revealVisible ? round.challengerPick === round.targetPick : null;
+
+  const handleSubmit = (playerId: string) => (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!round) return;
+
+    const trimmed = entryValue.trim();
+    const numericValue = Number(trimmed);
+
+    if (!trimmed || !Number.isInteger(numericValue) || Number.isNaN(numericValue)) {
+      setEntryError(`Enter a whole number between 1 and ${round.dare.odds}.`);
+      return;
+    }
+
+    if (numericValue < 1 || numericValue > round.dare.odds) {
+      setEntryError(`Pick a number between 1 and ${round.dare.odds}.`);
+      return;
+    }
+
+    setEntryError("");
+    setEntryValue("");
+    onUpdatePick(playerId, numericValue);
+  };
 
   return (
     <section className="panel active-round">
@@ -76,53 +111,124 @@ const ActiveRoundStage = ({
         {round.dare.stakes && <p className="active-round__stakes">Bonus: {round.dare.stakes}</p>}
       </div>
 
-      <div className="active-round__matchup">
-        <PlayerDial
-          label="Challenger"
-          player={challenger}
-          value={challengerPick}
-          odds={round.dare.odds}
-          disabled={picksLocked}
-          onChange={(value) => onUpdatePick(challenger.id, value)}
-        />
-        <div className="active-round__versus">
-          {round.stage === "countdown" ? (
-            <div className="active-round__countdown">
-              <span>{round.countdown}</span>
-              <p>Reveal in</p>
-            </div>
-          ) : (
-            <span className="active-round__vs">vs</span>
-          )}
-        </div>
-        <PlayerDial
-          label="Target"
-          player={target}
-          value={targetPick}
-          odds={round.dare.odds}
-          disabled={picksLocked}
-          onChange={(value) => onUpdatePick(target.id, value)}
-        />
-      </div>
-
       {round.stage === "collecting" && (
-        <footer className="active-round__actions">
-          <button className="text-button" type="button" onClick={onCancel}>
-            Cancel round
-          </button>
-          <button className="button" type="button" disabled={!picksReady} onClick={onLock}>
-            Lock numbers & start countdown
-          </button>
-        </footer>
+        <>
+          <div className="active-round__steps">
+            <StepCard
+              number={1}
+              title={`Pass to ${challenger.icon} ${challenger.name}`}
+              subtitle={`Keep it secret. Pick 1-${round.dare.odds}.`}
+              complete={Boolean(round.challengerPick)}
+            >
+              {collectingStep === "challenger" ? (
+                <form className="active-round__form" onSubmit={handleSubmit(challenger.id)}>
+                  <label className="active-round__form-label" htmlFor="challenger-pick">
+                    Enter your number between 1 and {round.dare.odds}
+                  </label>
+                  <input
+                    id="challenger-pick"
+                    type="number"
+                    min={1}
+                    max={round.dare.odds}
+                    inputMode="numeric"
+                    placeholder={`1-${round.dare.odds}`}
+                    value={entryValue}
+                    onChange={(event) => setEntryValue(event.target.value)}
+                    autoFocus
+                  />
+                  {entryError && <p className="active-round__error">{entryError}</p>}
+                  <button className="button" type="submit">
+                    Lock in challenger number
+                  </button>
+                </form>
+              ) : (
+                <p className="active-round__step-message">
+                  Secret number locked in. Pass the device to {target.icon} {target.name}.
+                </p>
+              )}
+            </StepCard>
+
+            {round.challengerPick && (
+              <StepCard
+                number={2}
+                title={`Pass to ${target.icon} ${target.name}`}
+                subtitle={`No peeking. Pick 1-${round.dare.odds}.`}
+                complete={Boolean(round.targetPick)}
+              >
+                {collectingStep === "target" ? (
+                  <form className="active-round__form" onSubmit={handleSubmit(target.id)}>
+                    <label className="active-round__form-label" htmlFor="target-pick">
+                      Enter your number between 1 and {round.dare.odds}
+                    </label>
+                    <input
+                      id="target-pick"
+                      type="number"
+                      min={1}
+                      max={round.dare.odds}
+                      inputMode="numeric"
+                      placeholder={`1-${round.dare.odds}`}
+                      value={entryValue}
+                      onChange={(event) => setEntryValue(event.target.value)}
+                      autoFocus
+                    />
+                    {entryError && <p className="active-round__error">{entryError}</p>}
+                    <button className="button" type="submit">
+                      Lock in target number
+                    </button>
+                  </form>
+                ) : (
+                  <p className="active-round__step-message">
+                    Secret number locked in. Gather everyone for the reveal.
+                  </p>
+                )}
+              </StepCard>
+            )}
+
+            {picksReady && (
+              <StepCard
+                number={3}
+                title="Get ready to reveal"
+                subtitle="No numbers shown until the countdown ends."
+                className="active-round__step--highlight"
+              >
+                <p className="active-round__step-message">
+                  When everyone&apos;s watching, launch the countdown to show the picks.
+                </p>
+                <button className="button" type="button" onClick={onLock}>
+                  Start countdown
+                </button>
+              </StepCard>
+            )}
+          </div>
+
+          <footer className="active-round__actions">
+            <button className="text-button" type="button" onClick={onCancel}>
+              Cancel round
+            </button>
+          </footer>
+        </>
       )}
 
       {round.stage === "countdown" && (
-        <footer className="active-round__actions">
-          <button className="text-button" type="button" onClick={onCancel}>
-            Abort round
-          </button>
-          <div className="active-round__hint">Hold tight! Countdown is live.</div>
-        </footer>
+        <div className="active-round__step active-round__step--highlight">
+          <header className="active-round__step-header">
+            <span className="active-round__step-number">⏱</span>
+            <div>
+              <p className="active-round__step-title">Countdown in progress</p>
+              <p className="active-round__step-subtitle">Numbers reveal when the timer hits zero.</p>
+            </div>
+          </header>
+          <div className="active-round__countdown">
+            <span>{round.countdown}</span>
+            <p>Reveal in</p>
+          </div>
+          <footer className="active-round__actions">
+            <button className="text-button" type="button" onClick={onCancel}>
+              Abort round
+            </button>
+            <div className="active-round__hint">Hold tight! Countdown is live.</div>
+          </footer>
+        </div>
       )}
 
       {round.stage === "reveal" && (
@@ -130,6 +236,10 @@ const ActiveRoundStage = ({
           <p className={`active-round__result${matched ? " is-match" : ""}`}>
             {matched ? "Numbers match! The dare is on." : "They dodged it this time."}
           </p>
+          <div className="active-round__summary">
+            <SummaryItem label={`${challenger.icon} ${challenger.name}`} value={round.challengerPick ?? "?"} />
+            <SummaryItem label={`${target.icon} ${target.name}`} value={round.targetPick ?? "?"} />
+          </div>
           <div className="active-round__resolution">
             {(Object.keys(resolutionLabels) as RoundResolution[]).map((resolution) => (
               <button
@@ -152,7 +262,13 @@ const ActiveRoundStage = ({
               ? `Match! ${target.icon} ${target.name} owes the dare.`
               : `${target.icon} ${target.name} slips free.`}
           </p>
-          <p className="active-round__resolved-note">Outcome: {round.resolution && resolutionLabels[round.resolution]}</p>
+          <div className="active-round__summary">
+            <SummaryItem label={`${challenger.icon} ${challenger.name}`} value={round.challengerPick ?? "?"} />
+            <SummaryItem label={`${target.icon} ${target.name}`} value={round.targetPick ?? "?"} />
+          </div>
+          <p className="active-round__resolved-note">
+            Outcome: {round.resolution && resolutionLabels[round.resolution]}
+          </p>
           <footer className="active-round__actions">
             <button className="button" type="button" onClick={onArchive}>
               Clear round
@@ -164,43 +280,40 @@ const ActiveRoundStage = ({
   );
 };
 
-interface PlayerDialProps {
-  label: string;
-  player: Player;
-  value: number;
-  odds: number;
-  disabled: boolean;
-  onChange: (value: number) => void;
+interface StepCardProps {
+  number: number;
+  title: string;
+  subtitle?: string;
+  complete?: boolean;
+  className?: string;
+  children: ReactNode;
 }
 
-const PlayerDial = ({ label, player, value, odds, disabled, onChange }: PlayerDialProps) => {
+const StepCard = ({ number, title, subtitle, complete, className, children }: StepCardProps) => {
   return (
-    <div className="player-dial" style={{ borderColor: player.color }}>
-      <header>
-        <span className="player-dial__label">{label}</span>
-        <span className="player-dial__identity">
-          <span className="player-dial__icon" style={{ background: player.color }}>
-            {player.icon}
-          </span>
-          {player.name}
-        </span>
-      </header>
-      <div className="player-dial__body">
-        <input
-          type="range"
-          min={1}
-          max={odds}
-          value={value || 1}
-          onChange={(event) => onChange(Number(event.target.value))}
-          disabled={disabled}
-        />
-        <div className="player-dial__value">
-          <span>{value || "?"}</span>
-          <small>Pick 1-{odds}</small>
+    <div className={`active-round__step${complete ? " is-complete" : ""}${className ? ` ${className}` : ""}`}>
+      <header className="active-round__step-header">
+        <span className="active-round__step-number">{number}</span>
+        <div>
+          <p className="active-round__step-title">{title}</p>
+          {subtitle && <p className="active-round__step-subtitle">{subtitle}</p>}
         </div>
-      </div>
+      </header>
+      <div className="active-round__step-body">{children}</div>
     </div>
   );
 };
+
+interface SummaryItemProps {
+  label: string;
+  value: number | string;
+}
+
+const SummaryItem = ({ label, value }: SummaryItemProps) => (
+  <div className="active-round__summary-item">
+    <span className="active-round__summary-label">{label}</span>
+    <span className="active-round__summary-value">{value}</span>
+  </div>
+);
 
 export default ActiveRoundStage;
