@@ -1202,13 +1202,21 @@ button {
 
 .composer__odds {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 18px;
-  align-items: center;
+  align-items: stretch;
   padding: 20px;
   border-radius: var(--radius-md);
   background: rgba(13, 23, 42, 0.85);
   border: 1px solid rgba(56, 189, 248, 0.18);
+}
+
+@media (min-width: 640px) {
+  .composer__odds {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
 }
 
 .composer__odds p {
@@ -1234,8 +1242,14 @@ button {
 }
 
 .composer__odds input[type="range"] {
-  width: 180px;
+  width: 100%;
   accent-color: var(--accent);
+}
+
+@media (min-width: 640px) {
+  .composer__odds input[type="range"] {
+    width: min(220px, 100%);
+  }
 }
 
 .composer__launch {
