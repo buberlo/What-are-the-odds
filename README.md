@@ -1,73 +1,126 @@
-# Welcome to your Lovable project
+# What are the odds?!
 
-## Project info
+A cinematic control room for running the high-stakes party game “What are the odds?!” in person or over video. Manage the roster, craft outrageous dares, collect secret picks, and reveal the outcome together from a single polished web UI.
 
-**URL**: https://lovable.dev/projects/77b23b79-d012-45f1-aabc-55176f5df32d
+## Features
 
-## How can I edit this code?
+- **Player roster dashboard** – Add or remove players on the fly, pick custom emoji and colors, and monitor each person’s wins, losses, and dares completed.
+- **Dare staging studio** – Choose a challenger, target, odds, and prompt. Launch a new dare in seconds with an interface tuned for touch screens and laptops alike.
+- **Live round controller** – Collect secret numbers, trigger a countdown reveal, then log whether the dare was completed, remixed, or declined.
+- **Persistent log** – Every round lands in a session history so the group can relive the chaos and settle debates later.
+- **Session pulse** – Spotlight the current MVP and overall stats so the crew sees who’s getting lucky (or not) tonight.
+- **Glassmorphism aesthetic** – Purpose-built styling keeps the app readable in low light while delivering a playful party vibe.
 
-There are several ways of editing your application.
+## Tech stack
 
-**Use Lovable**
+- [Vite](https://vitejs.dev/) + [React](https://react.dev/) with TypeScript for a fast, modern development experience.
+- Hand-crafted CSS (no Tailwind or component kits) for a bespoke visual identity.
+- Zero runtime dependencies beyond React so the production bundle stays tiny and self-contained.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/77b23b79-d012-45f1-aabc-55176f5df32d) and start prompting.
+## Getting started
 
-Changes made via Lovable will be committed automatically to this repo.
+1. **Install dependencies**
 
-**Use your preferred IDE**
+   ```bash
+   npm install
+   ```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+2. **Run the dev server**
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+   ```bash
+   npm run dev
+   ```
 
-Follow these steps:
+   Vite will report the local URL (defaults to `http://localhost:5173`). Hot reloading is enabled by default.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+3. **Lint the project**
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+   ```bash
+   npm run lint
+   ```
 
-# Step 3: Install the necessary dependencies.
-npm i
+4. **Create a production build**
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+   ```bash
+   npm run build
+   ```
 
-**Edit a file directly in GitHub**
+   The optimized assets land in `dist/` and can be served by any static HTTP server.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+5. **Preview the production build locally**
 
-**Use GitHub Codespaces**
+   ```bash
+   npm run preview
+   ```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Container & Kubernetes deployment
 
-## What technologies are used for this project?
+1. **Build a container image** using any static web server. Here’s a minimal example with [Caddy](https://caddyserver.com/):
 
-This project is built with:
+   ```dockerfile
+   FROM node:22-alpine AS build
+   WORKDIR /app
+   COPY package*.json .
+   RUN npm install
+   COPY . .
+   RUN npm run build
+   
+   FROM caddy:2-alpine
+   COPY --from=build /app/dist /srv
+   EXPOSE 8080
+   CMD ["caddy", "file-server", "--root", "/srv", "--listen", ":8080"]
+   ```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+2. **Push the image** to your registry (`docker buildx build --push ...`).
 
-## How can I deploy this project?
+3. **Deploy to Kubernetes** with a simple Deployment + Service manifest:
 
-Simply open [Lovable](https://lovable.dev/projects/77b23b79-d012-45f1-aabc-55176f5df32d) and click on Share -> Publish.
+   ```yaml
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     name: what-are-the-odds
+   spec:
+     replicas: 1
+     selector:
+       matchLabels:
+         app: what-are-the-odds
+     template:
+       metadata:
+         labels:
+           app: what-are-the-odds
+       spec:
+         containers:
+           - name: web
+             image: ghcr.io/your-user/what-are-the-odds:latest
+             ports:
+               - containerPort: 8080
+   ---
+   apiVersion: v1
+   kind: Service
+   metadata:
+     name: what-are-the-odds
+   spec:
+     selector:
+       app: what-are-the-odds
+     ports:
+       - name: http
+         port: 80
+         targetPort: 8080
+     type: LoadBalancer
+   ```
 
-## Can I connect a custom domain to my Lovable project?
+Expose the service via your preferred ingress solution and you’re ready to run the game from anywhere.
 
-Yes, you can!
+## Project scripts
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+| Script          | Description                                      |
+| --------------- | ------------------------------------------------ |
+| `npm run dev`   | Start the local dev server with hot reloading.    |
+| `npm run build` | Generate a production-ready build in `dist/`.     |
+| `npm run lint`  | Run ESLint across the project.                    |
+| `npm run preview` | Serve the `dist/` output for a final smoke test. |
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## License
+
+MIT License. See [LICENSE](LICENSE) if you plan to redistribute your own version of the experience.
