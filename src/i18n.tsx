@@ -7,7 +7,7 @@ import {
   type SetStateAction,
 } from "react";
 
-export type Language = "en" | "de";
+export type Language = "en" | "de" | "au";
 
 const translations = {
   en: {
@@ -16,6 +16,7 @@ const translations = {
       options: {
         en: "English",
         de: "German",
+        au: "Australian",
       },
     },
     app: {
@@ -197,18 +198,207 @@ const translations = {
       mvpNote: "{{dares}} dares · {{wins}} wins",
     },
   },
+  au: {
+    language: {
+      label: "Lingo",
+      options: {
+        en: "English",
+        de: "German",
+        au: "Aussie Banter",
+      },
+    },
+    app: {
+      hero: {
+        eyebrow: "Party odds wrangler",
+        title: "What are the odds?!",
+        subtitle:
+          "Line up the dares, sneak the secret picks, and crack the reveal like a proper cheeky legend.",
+        quickStats: {
+          players: "Mates",
+          rounds: "Rounds",
+          dares: "Dares",
+        },
+      },
+    },
+    howTo: {
+      eyebrow: "First rodeo?",
+      title: "How the shindig works",
+      steps: [
+        {
+          title: "Throw down",
+          description:
+            "One mate slings a dare and tosses out the odds (say 1 in 8). Make it spicy enough that no one chickens out, ya drongo!",
+        },
+        {
+          title: "Shake on it",
+          description:
+            "The target nods, then both quietly snag a number in range. No stickybeaking while the countdown's ticking, alright?",
+        },
+        {
+          title: "Show and tell",
+          description:
+            "Hit three, two, one and flash those picks. If they match, the target's on the hook—best bring the razzle-dazzle.",
+        },
+        {
+          title: "Crank it up",
+          description:
+            "If it's too much of a Sunday stroll, drop the odds or remix the dare. Keep it hilarious, consensual, and safe as houses.",
+        },
+      ],
+      progressComplete: "Guide done and dusted! Looping back…",
+      progress: "Step {{current}} of {{total}}",
+      stepLabel: "Step {{current}}",
+      readyTitle: "You're good as gold!",
+      readyCopy:
+        "Nice hustle finishing the walkthrough. It'll auto-reset so the next mate can have a squiz.",
+      finish: "Wrap it up",
+      markComplete: "Tick this step",
+      tip: "Tip: Lower odds mean the dare's more likely to pop. Chuck a sweetener in for extra laughs or bragging rights.",
+    },
+    roster: {
+      eyebrow: "Squad roll call",
+      title: "Mates ({{count}})",
+      badge: "Live",
+      description:
+        "Add every legend keen for chaos. Each mate scores a colour and emoji so the reveal hits like fireworks on New Year's.",
+      nameLabel: "Name",
+      namePlaceholder: "Mate nickname",
+      iconLabel: "Icon",
+      accentLabel: "Accent",
+      accentAria: "Paint it {{color}}",
+      submit: "Add mate",
+      limitHint: "Max 12 mates for now, keep it tidy.",
+      playerStats: "{{wins}} wins · {{losses}} losses · {{dares}} dares",
+      remove: "Boot {{name}}",
+      spotlightEyebrow: "Legend of the night",
+      spotlightEmpty: "Add a mate to kick things off",
+    },
+    composer: {
+      eyebrow: "Spin a dare",
+      title: "Odds cobbler",
+      inspire: "Hit me with inspo",
+      empty: "Stack at least two mates to unlock the odds board.",
+      challengerLabel: "Challenger",
+      challengerPlaceholder: "Pick the stirrer",
+      targetLabel: "Target",
+      targetPlaceholder: "Pick the poor sod",
+      promptLabel: "Dare prompt",
+      promptPlaceholder: "What's the shenanigan everyone's playing for?",
+      sweetenerLabel: "Sweetener",
+      sweetenerPlaceholder: "Chuck in a reward or twist (optional)",
+      oddsRangeLabel: "Odds range",
+      oddsValue: "1 in {{value}}",
+      hint: "Lock it once both players give the nod.",
+      launch: "Kick off round",
+      swapAria: "Swap challenger and target",
+      heat: {
+        spicy: "Scorching",
+        bold: "Ballsy",
+        classic: "Classic",
+        stretch: "Bit of a stretch",
+        longShot: "Total long shot",
+      },
+      prompts: [
+        "Belt out the chorus of your nanna's favourite pub song",
+        "Dramatically read the last spicy meme you sent",
+        "Balance a sausage roll on your head for ten seconds",
+        "Let the challenger redesign your avatar, mullet and all",
+        "Speak only in rhyming slang next round",
+        "Drop a bonkers fun fact about yourself",
+      ],
+    },
+    activeRound: {
+      emptyEyebrow: "No round on the boil",
+      emptyTitle: "Spin up the countdown",
+      emptyBody: "Set a dare to launch a round of What are the odds?!",
+      emptyHint:
+        "Mates secretly pick numbers between 1 and the odds. Smash lock to reveal who owes the dare.",
+      eyebrow: "Dare in play",
+      title: "Odds 1 in {{value}}",
+      badge: "Round #{{id}}",
+      bonusLabel: "Bonus",
+      collecting: {
+        passTo: "Hand it to {{player}}",
+        keepSecret: "Keep shtum. Pick {{min}}-{{max}}.",
+        formLabel: "Pop in a number between {{min}} and {{max}}",
+        lockChallenger: "Lock the challenger pick",
+        passDevice: "Secret number stashed. Pass the device to {{player}}.",
+        noPeek: "No peeking. Pick {{min}}-{{max}}.",
+        lockTarget: "Lock the target pick",
+        readyMessage: "Number tucked away. Rally the crew for the reveal.",
+        readyTitle: "Time for the reveal",
+        readySubtitle: "Numbers stay hidden till the countdown hits zero.",
+        readyBody: "When the whole mob's watching, fire the countdown to spill the beans.",
+        start: "Start the countdown",
+        cancel: "Bin this round",
+      },
+      countdown: {
+        title: "Countdown's ripping",
+        subtitle: "Numbers pop when the timer smacks zero.",
+        revealIn: "Reveal in",
+        abort: "Pull the plug",
+        hint: "Hang tight! Countdown's live.",
+      },
+      reveal: {
+        match: "Match! Dare's on, cobber.",
+        miss: "Dodged it this time.",
+      },
+      resolved: {
+        match: "Bullseye! {{target}} owes the dare.",
+        miss: "{{target}} wriggled out.",
+        outcome: "Outcome:",
+        clear: "Clear the round",
+      },
+      resolutionLabels: {
+        completed: "Dare nailed",
+        declined: "Gave it a miss",
+        partial: "Remixed dare",
+      },
+      errors: {
+        wholeNumber: "Chuck in a whole number between {{min}} and {{max}}.",
+        range: "Pick a number between {{min}} and {{max}}.",
+      },
+    },
+    history: {
+      eyebrow: "Nightly recap",
+      title: "History",
+      empty: "Kick off a round to fill the yarn log.",
+      bonusLabel: "Bonus",
+      versus: "vs",
+      odds: "1 in {{value}}",
+      resolutionLabels: {
+        completed: "nailed",
+        declined: "bailed",
+        partial: "remixed",
+      },
+    },
+    stats: {
+      eyebrow: "Vibe check",
+      title: "Stats",
+      roundsLabel: "Rounds launched",
+      roundsNote: "Keep the party humming!",
+      daresLabel: "Dares completed",
+      daresNoteSome: "Living legends",
+      daresNoteNone: "Waiting for the first dare",
+      recordLabel: "Wins vs losses",
+      recordNote: "Who's snagging bragging rights?",
+      mvpEyebrow: "Top legend spotlight",
+      mvpNote: "{{dares}} dares · {{wins}} wins",
+    },
+  },
   de: {
     language: {
       label: "Sprache",
       options: {
         en: "Englisch",
         de: "Deutsch",
+        au: "Australisch",
       },
     },
     app: {
       hero: {
         eyebrow: "Party-Odds-Tracker",
-        title: "Wie stehen die Chancen?!",
+        title: "What are the odds?!",
         subtitle:
           "Starte Mutproben, sammle geheime Zahlen und enthülle das Ergebnis, ohne den Abend auszubremsen.",
         quickStats: {
@@ -308,7 +498,7 @@ const translations = {
     activeRound: {
       emptyEyebrow: "Keine Runde aktiv",
       emptyTitle: "Countdown starten",
-      emptyBody: "Erstelle eine Mutprobe, um eine Runde von „Wie stehen die Chancen?!“ zu starten.",
+      emptyBody: "Erstelle eine Mutprobe, um eine Runde von „What are the odds?!“ zu starten.",
       emptyHint:
         "Die Spielenden wählen heimlich Zahlen zwischen 1 und den Odds. Sperrt und deckt auf, wer die Mutprobe erfüllen muss.",
       eyebrow: "Aktive Mutprobe",
@@ -390,7 +580,7 @@ type TranslationShape = (typeof translations)["en"];
 
 const fallbackLanguage: Language = "en";
 
-const supportedLanguages: Language[] = ["en", "de"];
+const supportedLanguages: Language[] = ["en", "de", "au"];
 
 type PlaceholderValues = Record<string, string | number>;
 
@@ -446,10 +636,13 @@ export const TranslationProvider = ({ language, setLanguage, children }: Transla
       return replacePlaceholders(raw, vars);
     };
     const formatTime = (timestamp: number) =>
-      new Intl.DateTimeFormat(language === "de" ? "de-DE" : "en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-      }).format(timestamp);
+      new Intl.DateTimeFormat(
+        language === "de" ? "de-DE" : language === "au" ? "en-AU" : "en-US",
+        {
+          hour: "numeric",
+          minute: "2-digit",
+        },
+      ).format(timestamp);
     return {
       language,
       setLanguage,
