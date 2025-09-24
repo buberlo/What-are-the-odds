@@ -330,14 +330,24 @@ const AppContent = () => {
             </div>
           </div>
           <div className="app-header__actions">
-            <button
-              type="button"
-              className="text-button app-header__howto"
-              onClick={() => setInsightOverlay("guide")}
-              disabled={insightOverlay === "guide"}
-            >
-              {t("app.flow.overlays.guideLink")}
-            </button>
+            <div className="app-header__insights">
+              <button
+                type="button"
+                className="text-button app-header__howto"
+                onClick={() => setInsightOverlay("guide")}
+                disabled={insightOverlay === "guide"}
+              >
+                {t("app.flow.overlays.guideLink")}
+              </button>
+              <button
+                type="button"
+                className="app-header__trophy-link"
+                onClick={() => setInsightOverlay("stats")}
+                disabled={insightOverlay === "stats"}
+              >
+                {t("app.flow.overlays.statsLink")}
+              </button>
+            </div>
             <label className="app-header__language">
               <span>{languageLabel}</span>
               <select value={language} onChange={handleLanguageChange}>
