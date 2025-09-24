@@ -162,9 +162,7 @@ const AppContent = () => {
   const [activeStage, setActiveStage] = useState<ExperienceStage>(
     persistedState.history.length > 0 ? "legacy" : "roster",
   );
-  const [insightOverlay, setInsightOverlay] = useState<"stats" | "guide" | null>(
-    persistedState.history.length > 0 ? "stats" : null,
-  );
+  const [insightOverlay, setInsightOverlay] = useState<"stats" | "guide" | null>(null);
 
   const { t, language, setLanguage, languageLabel, languageOptions, availableLanguages } = useTranslation();
 
@@ -491,7 +489,7 @@ const AppContent = () => {
               </button>
               <button
                 type="button"
-                className="app-header__trophy-link"
+                className="text-button app-header__howto app-header__trophy-link"
                 onClick={openTrophyRoom}
                 disabled={insightOverlay === "stats"}
               >
