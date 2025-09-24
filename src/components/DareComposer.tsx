@@ -204,7 +204,7 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
 
           <footer className="composer__footer">
             <p className="composer__hint">{t("composer.hint")}</p>
-            <button className="button" type="submit" disabled={disabled}>
+            <button className="button" type="submit" disabled={disabled || !canPlay}>
               {t("composer.launch")}
             </button>
           </footer>

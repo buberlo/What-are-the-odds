@@ -6,19 +6,17 @@ interface ActiveRoundStageProps {
   round: ActiveRound | null;
   players: Player[];
   onUpdatePick: (playerId: string, value: number) => void;
-  onLock: () => void;
   onResolve: (resolution: RoundResolution) => void;
   onCancel: () => void;
   onArchive: () => void;
 }
 
-type CollectingStep = "challenger" | "target" | "ready";
+type CollectingStep = "challenger" | "target";
 
 const ActiveRoundStage = ({
   round,
   players,
   onUpdatePick,
-  onLock,
   onResolve,
   onCancel,
   onArchive,
@@ -41,7 +39,7 @@ const ActiveRoundStage = ({
     if (!round || round.stage !== "collecting") return null;
     if (!round.challengerPick) return "challenger";
     if (!round.targetPick) return "target";
-    return "ready";
+    return null;
   }, [round]);
 
   useEffect(() => {
@@ -64,7 +62,6 @@ const ActiveRoundStage = ({
     );
   }
 
-  const picksReady = Boolean(round.challengerPick && round.targetPick);
   const revealVisible = round.stage === "reveal" || round.stage === "resolved";
   const isResolved = round.stage === "resolved";
   const matched = revealVisible ? round.challengerPick === round.targetPick : null;
@@ -183,19 +180,6 @@ const ActiveRoundStage = ({
               </StepCard>
             )}
 
-            {picksReady && (
-              <StepCard
-                number={3}
-                title={t("activeRound.collecting.readyTitle")}
-                subtitle={t("activeRound.collecting.readySubtitle")}
-                className="active-round__step--highlight"
-              >
-                <p className="active-round__step-message">{t("activeRound.collecting.readyBody")}</p>
-                <button className="button" type="button" onClick={onLock}>
-                  {t("activeRound.collecting.start")}
-                </button>
-              </StepCard>
-            )}
           </div>
 
           <footer className="active-round__actions">
