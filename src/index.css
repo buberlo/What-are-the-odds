@@ -1929,46 +1929,126 @@ button {
   color: var(--text-secondary);
 }
 
-.howto__slide {
-  position: relative;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(209, 213, 223, 0.7);
-  padding: 24px;
-  display: grid;
-  gap: 12px;
-  overflow: hidden;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+@keyframes cardElevate {
+  0% {
+    transform: translate3d(0, 38px, -60px) scale(0.94) rotateX(-6deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1) rotateX(0deg);
+    opacity: 1;
+  }
 }
 
-.howto__slide::before {
-  content: "";
+@keyframes cardBadgeReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.howto__card-stack {
+  position: relative;
+  min-height: 280px;
+  perspective: 1600px;
+}
+
+.howto__card {
   position: absolute;
-  inset: -50% -20% auto;
-  height: 220px;
-  background: radial-gradient(circle at center, rgba(94, 196, 255, 0.22), transparent 72%);
-  opacity: 0.2;
-  transition: opacity 0.3s ease;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(209, 213, 223, 0.68);
+  padding: 26px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  overflow: hidden;
+  transform: translate3d(0, 0, 0);
+  transform-style: preserve-3d;
+  box-shadow: 0 28px 48px rgba(15, 23, 42, 0.14);
+  transition: transform 0.58s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease,
+    filter 0.4s ease, box-shadow 0.4s ease;
   pointer-events: none;
 }
 
-.howto__slide:hover,
-.howto__slide:focus-within {
-  transform: translateY(-6px);
-  box-shadow: 0 24px 40px rgba(15, 23, 42, 0.16);
+.howto__card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 24% 18%, rgba(94, 196, 255, 0.32), transparent 65%),
+    radial-gradient(circle at 88% 82%, rgba(255, 97, 214, 0.28), transparent 72%);
+  opacity: 0.45;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+  mix-blend-mode: screen;
 }
 
-.howto__slide:hover::before,
-.howto__slide:focus-within::before {
-  opacity: 0.6;
+.howto__card--current::before {
+  opacity: 0.8;
 }
 
-.howto__slide--advancing {
-  opacity: 0.6;
-  filter: saturate(0.6);
+.howto__card--active {
+  pointer-events: auto;
+  animation: cardElevate 0.48s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 36px 68px rgba(15, 23, 42, 0.2);
+  filter: saturate(1.05);
 }
 
-.howto__slide-eyebrow {
+.howto__card--upcoming {
+  opacity: 0.78;
+  filter: saturate(0.82);
+  transform: translate3d(
+      0,
+      calc(var(--stack-position, 1) * 32px),
+      calc(var(--stack-position, 1) * -90px)
+    )
+    scale(calc(1 - var(--stack-position, 0) * 0.05))
+    rotateX(calc(var(--stack-position, 0) * -2deg));
+}
+
+.howto__card--hidden {
+  opacity: 0;
+  transform: translate3d(0, 120px, -240px) scale(0.8);
+}
+
+.howto__card--completed {
+  transform: translate3d(
+      calc(-32% * var(--completed-offset, 1)),
+      calc(-18px * var(--completed-offset, 1)),
+      calc(-120px * var(--completed-offset, 1))
+    )
+    rotate(-10deg)
+    scale(0.92);
+  opacity: 0;
+  filter: blur(1px) saturate(0.85);
+}
+
+.howto__card--advancing {
+  transform: translate3d(-140%, -12%, -140px) rotate(-14deg) scale(0.88);
+  opacity: 0;
+  filter: blur(1.6px) saturate(0.75);
+}
+
+.howto__card--promoting {
+  animation: cardElevate 0.48s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translate3d(0, 0, 0) scale(1);
+  opacity: 1;
+  filter: saturate(1.08);
+  box-shadow: 0 36px 60px rgba(79, 156, 255, 0.24);
+}
+
+.howto__card-content {
+  display: grid;
+  gap: 12px;
+}
+
+.howto__card-eyebrow {
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.18em;
@@ -1976,21 +2056,37 @@ button {
   color: var(--text-muted);
 }
 
-.howto__slide-title {
+.howto__card-title {
   margin: 0;
   font-size: 1.4rem;
   font-weight: 600;
 }
 
-.howto__slide-copy {
+.howto__card-copy {
   margin: 0;
   color: var(--text-secondary);
   line-height: 1.55;
 }
 
-.howto__actions {
+.howto__card-actions {
   display: flex;
   justify-content: flex-start;
+  margin-top: auto;
+}
+
+.howto__card-status {
+  position: absolute;
+  top: 22px;
+  right: 24px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(52, 199, 89, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(52, 199, 89, 0.35);
+  color: var(--success);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  animation: cardBadgeReveal 0.4s ease forwards;
 }
 
 .howto__tip {
@@ -2013,6 +2109,19 @@ button {
   .app-header {
     padding: 32px 24px;
     gap: 28px;
+  }
+
+  .howto__card-stack {
+    min-height: 320px;
+  }
+
+  .howto__card {
+    padding: 22px 20px 20px;
+  }
+
+  .howto__card-status {
+    top: 18px;
+    right: 18px;
   }
 
   .app-header__bar {
