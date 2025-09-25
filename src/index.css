@@ -1958,27 +1958,95 @@ button {
 }
 
 @media (max-width: 720px) {
+  body {
+    align-items: flex-start;
+  }
+
   .app-frame {
-    padding: 32px 18px 80px;
+    padding: 36px 18px 80px;
+    gap: 32px;
   }
 
   .app-header {
     padding: 32px 24px;
+    gap: 28px;
   }
 
-  .panel {
-    padding: 24px;
+  .app-header__bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+  }
+
+  .app-header__language {
+    width: 100%;
+  }
+
+  .app-header__language select {
+    min-width: 0;
+  }
+
+  .app-header__actions {
+    width: 100%;
+    justify-items: stretch;
+  }
+
+  .app-header__actions > * {
+    width: 100%;
+  }
+
+  .app-header__insights {
+    justify-items: stretch;
+  }
+
+  .app-header__howto,
+  .app-header__trophy-link {
+    justify-content: center;
   }
 
   .app-header__stats {
+    padding: 22px;
     grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .app-main {
+    width: 100%;
+  }
+
+  .panel {
+    padding: 24px 22px;
+    border-radius: var(--radius-md);
+  }
+
+  .panel__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .panel__title {
+    margin-top: 4px;
+  }
+
+  .panel__badge {
+    align-self: stretch;
+    justify-content: center;
+  }
+
+  .roster-list li {
+    align-items: flex-start;
   }
 }
 
 @media (max-width: 540px) {
-  .app-header__bar {
-    flex-direction: column;
-    align-items: flex-start;
+  .app-frame {
+    padding: 32px 16px 72px;
+    gap: 28px;
+  }
+
+  .app-header {
+    padding: 28px 20px;
+    gap: 24px;
   }
 
   .app-header__avatars span {
@@ -1986,13 +2054,157 @@ button {
     height: 36px;
   }
 
-  .active-round__actions {
+  .app-experience {
+    gap: 20px;
+  }
+
+  .app-experience__header {
+    gap: 12px;
+  }
+
+  .app-experience__subtitle {
+    font-size: 0.95rem;
+  }
+
+  .app-experience__steps {
+    padding: 12px;
+    gap: 12px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .app-experience__step {
+    flex: 0 0 auto;
+    min-width: 140px;
+    padding: 16px;
+  }
+
+  .app-experience__viewport {
+    min-height: unset;
+  }
+
+  .app-stage {
+    padding: 24px 18px;
+    border-radius: var(--radius-lg);
+  }
+
+  .app-stage__content {
+    min-height: unset;
+    gap: 22px;
+  }
+
+  .app-stage__actions {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
+  }
+
+  .app-stage__actions .button {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .active-round__dare,
+  .active-round__reveal {
+    padding: 18px;
+  }
+
+  .active-round__steps {
+    gap: 16px;
+  }
+
+  .active-round__step {
+    padding: 18px;
+  }
+
+  .active-round__summary {
+    grid-template-columns: 1fr;
+  }
+
+  .active-round__result {
+    font-size: 1.2rem;
+  }
+
+  .composer__row {
+    grid-template-columns: 1fr;
+  }
+
+  .composer__launch {
+    justify-content: stretch;
+  }
+
+  .composer__launch .button {
+    width: 100%;
+  }
+
+  .history__item {
+    padding: 18px;
   }
 
   .history__meta {
     flex-direction: column;
     align-items: flex-start;
+    gap: 8px;
+  }
+
+  .history__players {
+    gap: 10px;
+  }
+
+  .roster-form {
+    gap: 16px;
+  }
+
+  .roster-list li {
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .roster-list__remove {
+    align-self: flex-end;
+  }
+
+  .roster-spotlight {
+    padding: 16px;
+  }
+
+  .app-legacy__portals {
+    gap: 12px;
+  }
+
+  .app-legacy__portal {
+    min-width: unset;
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .app-frame {
+    padding: 28px 14px 64px;
+  }
+
+  .app-header__title {
+    font-size: 1.9rem;
+  }
+
+  .app-experience__title {
+    font-size: 1.6rem;
+  }
+
+  .app-experience__step {
+    min-width: 130px;
+  }
+
+  .app-stage {
+    padding: 22px 16px;
+  }
+
+  .app-stage__actions {
+    gap: 10px;
+  }
+
+  .panel {
+    padding: 22px 16px;
   }
 }
