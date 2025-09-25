@@ -1,3 +1,5 @@
+export type ExperienceStage = "roster" | "dare" | "round" | "legacy";
+
 export type RoundStage = "collecting" | "countdown" | "reveal" | "resolved";
 
 export interface Player {

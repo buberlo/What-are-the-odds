@@ -1,15 +1,16 @@
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import ActiveRoundStage from "./components/ActiveRoundStage";
 import DareComposer from "./components/DareComposer";
+import GameExperience3D from "./components/GameExperience3D";
 import HistoryPanel from "./components/HistoryPanel";
 import HowToPlayCard from "./components/HowToPlayCard";
 import PlayerRoster from "./components/PlayerRoster";
 import StatsPanel from "./components/StatsPanel";
-import VisualEffectsCanvas from "./components/VisualEffectsCanvas";
 import { TranslationProvider, useTranslation, type Language } from "./i18n";
 import {
   ActiveRound,
   DareConfig,
+  ExperienceStage,
   Player,
   RoundHistoryEntry,
   RoundResolution,
@@ -152,7 +153,9 @@ const createPlayer = (name: string, icon: string, color: string): Player => ({
   daresCompleted: 0,
 });
 
-type ExperienceStage = "roster" | "dare" | "round" | "legacy";
+type StageStatus = "locked" | "available" | "active" | "complete";
+
+const STAGE_ORDER: ExperienceStage[] = ["roster", "dare", "round", "legacy"];
 
 const AppContent = () => {
   const [persistedState] = useState<PersistedState>(loadPersistedState);
@@ -165,7 +168,7 @@ const AppContent = () => {
 
   const { t, language, setLanguage, languageLabel, languageOptions, availableLanguages } = useTranslation();
 
-  const stageOrder: ExperienceStage[] = ["roster", "dare", "round", "legacy"];
+  const stageOrder = STAGE_ORDER;
 
   const stageMeta = useMemo(
     () => [
@@ -201,7 +204,10 @@ const AppContent = () => {
     () => ({
       roster: players.length >= 2,
       dare: Boolean(activeRound),
-      round: Boolean(activeRound && activeRound.stage === "resolved") || history.length > 0,
+      round:
+        Boolean(
+          activeRound && ["reveal", "resolved"].includes(activeRound.stage),
+        ) || history.length > 0,
       legacy: history.length > 0,
     }),
     [players.length, activeRound, history.length],
@@ -212,6 +218,29 @@ const AppContent = () => {
   const stageProgress = ((activeStageIndex + 1) / stageOrder.length) * 100;
   const isLastStage = activeStageIndex === stageOrder.length - 1;
   const canAdvance = isLastStage || stageCompletion[activeStage];
+
+  const stageStatuses = useMemo<Record<ExperienceStage, StageStatus>>(() => {
+    const map = {} as Record<ExperienceStage, StageStatus>;
+    stageOrder.forEach((stageId, index) => {
+      if (stageId === activeStage) {
+        map[stageId] = "active";
+        return;
+      }
+      if (stageCompletion[stageId]) {
+        map[stageId] = "complete";
+        return;
+      }
+      if (index > 0) {
+        const previousId = stageOrder[index - 1];
+        if (!stageCompletion[previousId]) {
+          map[stageId] = "locked";
+          return;
+        }
+      }
+      map[stageId] = "available";
+    });
+    return map;
+  }, [stageOrder, stageCompletion, activeStage]);
 
   const launchRound = (config: DareConfig) => {
     const nextRound: ActiveRound = {
@@ -386,6 +415,32 @@ const AppContent = () => {
     [players],
   );
 
+  const stageSequence = useMemo(
+    () =>
+      stageMeta.map((meta, index) => {
+        const status = stageStatuses[meta.id];
+        const isLocked = status === "locked" && meta.id !== activeStage;
+        const isComplete = status === "complete";
+        return {
+          meta,
+          index,
+          status,
+          isLocked,
+          isComplete,
+        };
+      }),
+    [stageMeta, stageStatuses, activeStage],
+  );
+
+  const quickStats = useMemo(
+    () => [
+      { label: t("app.hero.quickStats.players"), value: players.length },
+      { label: t("app.hero.quickStats.rounds"), value: roundsLaunched },
+      { label: t("app.hero.quickStats.dares"), value: totalDaresCompleted },
+    ],
+    [t, players.length, roundsLaunched, totalDaresCompleted],
+  );
+
   const handleLanguageChange = (event: ChangeEvent<HTMLSelectElement>) => {
     setLanguage(event.target.value as Language);
   };
@@ -466,21 +521,30 @@ const AppContent = () => {
   };
 
   return (
-    <div className="app-frame">
-      <header className="app-header">
-        <div className="app-header__bar">
-          <div className="app-logo">
-            <span className="app-logo__mark">🎲</span>
-            <div className="app-logo__text">
-              <span className="app-logo__title">What are the odds?!</span>
-              <span className="app-logo__tagline">{t("app.hero.eyebrow")}</span>
+    <div className="holodeck">
+      <GameExperience3D
+        stages={stageMeta}
+        stageOrder={stageOrder}
+        activeStage={activeStage}
+        stageCompletion={stageCompletion}
+        canAdvance={canAdvance}
+        onSelectStage={goToStage}
+        onAdvance={handleNextStage}
+      />
+      <div className="holodeck__hud">
+        <header className="hud-header">
+          <div className="hud-header__brand">
+            <span className="hud-header__mark">🎲</span>
+            <div className="hud-header__text">
+              <p className="hud-header__eyebrow">{t("app.hero.eyebrow")}</p>
+              <h1 className="hud-header__title">What are the odds?!</h1>
             </div>
           </div>
-          <div className="app-header__actions">
-            <div className="app-header__insights">
+          <div className="hud-header__actions">
+            <div className="hud-header__buttons">
               <button
                 type="button"
-                className="text-button app-header__howto"
+                className="hud-header__button"
                 onClick={() => setInsightOverlay("guide")}
                 disabled={insightOverlay === "guide"}
               >
@@ -488,14 +552,14 @@ const AppContent = () => {
               </button>
               <button
                 type="button"
-                className="text-button app-header__howto app-header__trophy-link"
+                className="hud-header__button"
                 onClick={openTrophyRoom}
                 disabled={insightOverlay === "stats"}
               >
                 {t("app.flow.overlays.statsLink")}
               </button>
             </div>
-            <label className="app-header__language">
+            <label className="hud-header__language">
               <span>{languageLabel}</span>
               <select value={language} onChange={handleLanguageChange}>
                 {availableLanguages.map((code) => (
@@ -506,14 +570,20 @@ const AppContent = () => {
               </select>
             </label>
           </div>
-        </div>
-        <div className="app-header__body">
-          <div className="app-header__copy">
-            <p className="app-header__eyebrow">{t("app.hero.eyebrow")}</p>
-            <h1 className="app-header__title">{t("app.hero.title")}</h1>
-            <p className="app-header__subtitle">{t("app.hero.subtitle")}</p>
+        </header>
+
+        <section className="hud-status">
+          <div className="hud-status__copy">
+            <p className="hud-status__eyebrow">{t("app.flow.headline")}</p>
+            <h2 className="hud-status__title">{activeStageMeta.title}</h2>
+            <p className="hud-status__subtitle">{activeStageMeta.description}</p>
+            <div className="hud-status__progress" role="presentation">
+              <span style={{ width: `${stageProgress}%` }} />
+            </div>
+          </div>
+          <div className="hud-status__metrics">
             {heroPlayers.length > 0 && (
-              <div className="app-header__avatars" aria-label={t("app.hero.quickStats.players")}>
+              <div className="hud-status__avatars" aria-label={t("app.hero.quickStats.players")}>
                 {heroPlayers.map((player) => (
                   <span key={player.id} style={{ background: player.color }}>
                     {player.icon}
@@ -521,117 +591,84 @@ const AppContent = () => {
                 ))}
               </div>
             )}
-          </div>
-          <dl className="app-header__stats">
-            <div>
-              <dt>{t("app.hero.quickStats.players")}</dt>
-              <dd>{players.length}</dd>
-            </div>
-            <div>
-              <dt>{t("app.hero.quickStats.rounds")}</dt>
-              <dd>{roundsLaunched}</dd>
-            </div>
-            <div>
-              <dt>{t("app.hero.quickStats.dares")}</dt>
-              <dd>{totalDaresCompleted}</dd>
-            </div>
-          </dl>
-        </div>
-      </header>
-
-      <main className="app-main">
-        <section className="app-experience">
-          <header className="app-experience__header">
-            <div>
-              <p className="app-experience__eyebrow">{t("app.flow.headline")}</p>
-              <h2 className="app-experience__title">{activeStageMeta.title}</h2>
-            </div>
-            <p className="app-experience__subtitle">{activeStageMeta.description}</p>
-          </header>
-
-          <div className="app-experience__progress" role="presentation">
-            <span style={{ width: `${stageProgress}%` }} />
-          </div>
-
-          <nav className="app-experience__steps" aria-label={t("app.flow.headline")}>
-            {stageMeta.map((meta, index) => {
-              const isActive = meta.id === activeStage;
-              const isComplete = stageCompletion[meta.id] && index < activeStageIndex;
-              const previousStage = stageOrder[index - 1];
-              const isLocked = index > 0 && !stageCompletion[previousStage];
-              const stepClass = [
-                "app-experience__step",
-                isActive ? "is-active" : "",
-                isComplete ? "is-complete" : "",
-                isLocked ? "is-locked" : "",
-              ]
-                .filter(Boolean)
-                .join(" ");
-
-              return (
-                <button
-                  key={meta.id}
-                  type="button"
-                  className={stepClass}
-                  onClick={() => {
-                    if (!isLocked) {
-                      goToStage(meta.id);
-                    }
-                  }}
-                  aria-current={isActive ? "step" : undefined}
-                  aria-disabled={isLocked ? true : undefined}
-                  aria-label={t("app.flow.controls.jump", { label: meta.label })}
-                  disabled={isLocked}
-                >
-                  <span className="app-experience__step-index">{String(index + 1).padStart(2, "0")}</span>
-                  <span className="app-experience__step-label">{meta.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-
-          <div className="app-experience__viewport">
-            <div className={`app-stage app-stage--${activeStage}`}>
-              <span className="app-stage__beam app-stage__beam--one" aria-hidden="true" />
-              <span className="app-stage__beam app-stage__beam--two" aria-hidden="true" />
-              <span className="app-stage__beam app-stage__beam--three" aria-hidden="true" />
-              <div className="app-stage__content">{renderStage()}</div>
-            </div>
-          </div>
-
-          <div className="app-stage__actions">
-            <button
-              type="button"
-              className="button button--ghost"
-              onClick={handlePreviousStage}
-              disabled={activeStageIndex === 0}
-            >
-              {t("app.flow.controls.prev")}
-            </button>
-            <button
-              type="button"
-              className="button"
-              onClick={handleNextStage}
-              disabled={!canAdvance}
-            >
-              {isLastStage ? t("app.flow.controls.restart") : t("app.flow.controls.next")}
-            </button>
+            <dl className="hud-status__grid">
+              {quickStats.map((stat) => (
+                <div key={stat.label}>
+                  <dt>{stat.label}</dt>
+                  <dd>{stat.value}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
         </section>
-      </main>
+
+        <nav className="hud-steps" aria-label={t("app.flow.headline")}> 
+          {stageSequence.map(({ meta, status, isLocked, index }) => {
+            const stepClass = [
+              "hud-steps__item",
+              `is-${status}`,
+              meta.id === activeStage ? "is-active" : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+            return (
+              <button
+                key={meta.id}
+                type="button"
+                className={stepClass}
+                onClick={() => {
+                  if (!isLocked) {
+                    goToStage(meta.id);
+                  }
+                }}
+                aria-current={meta.id === activeStage ? "step" : undefined}
+                aria-disabled={isLocked ? true : undefined}
+                aria-label={t("app.flow.controls.jump", { label: meta.label })}
+                disabled={isLocked}
+              >
+                <span className="hud-steps__index">{String(index + 1).padStart(2, "0")}</span>
+                <span className="hud-steps__label">{meta.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        <section className={`hud-panel hud-panel--${activeStage}`}>
+          <div className="hud-panel__inner">{renderStage()}</div>
+        </section>
+
+        <footer className="hud-actions">
+          <button
+            type="button"
+            className="hud-actions__button hud-actions__button--ghost"
+            onClick={handlePreviousStage}
+            disabled={activeStageIndex === 0}
+          >
+            {t("app.flow.controls.prev")}
+          </button>
+          <button
+            type="button"
+            className="hud-actions__button"
+            onClick={handleNextStage}
+            disabled={!canAdvance}
+          >
+            {isLastStage ? t("app.flow.controls.restart") : t("app.flow.controls.next")}
+          </button>
+        </footer>
+      </div>
 
       {insightOverlay && (
-        <div className="app-overlay" role="dialog" aria-modal="true" aria-label={overlayLabel}>
-          <div className="app-overlay__backdrop" aria-hidden="true" />
-          <div className="app-overlay__panel">
+        <div className="holodeck-overlay" role="dialog" aria-modal="true" aria-label={overlayLabel}>
+          <div className="holodeck-overlay__backdrop" aria-hidden="true" />
+          <div className="holodeck-overlay__panel">
             <button
               type="button"
-              className="app-overlay__close text-button"
+              className="holodeck-overlay__close"
               onClick={() => setInsightOverlay(null)}
             >
               {t("app.flow.controls.closeOverlay")}
             </button>
-            <div className="app-overlay__content">
+            <div className="holodeck-overlay__content">
               {insightOverlay === "stats" ? (
                 <StatsPanel players={players} roundsPlayed={roundsLaunched} />
               ) : (
@@ -650,8 +687,7 @@ const App = () => {
 
   return (
     <TranslationProvider language={language} setLanguage={setLanguage}>
-      <div className="app-shell">
-        <VisualEffectsCanvas />
+      <div className="holodeck-frame">
         <AppContent />
       </div>
     </TranslationProvider>
