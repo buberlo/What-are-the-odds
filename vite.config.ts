@@ -7,12 +7,4 @@ export default defineConfig({
     port: 8080,
   },
   plugins: [react()],
-  build: {
-    target: "esnext",
-  },
-  optimizeDeps: {
-    esbuildOptions: {
-      target: "esnext",
-    },
-  },
 });
