@@ -5,6 +5,7 @@ import HistoryPanel from "./components/HistoryPanel";
 import HowToPlayCard from "./components/HowToPlayCard";
 import PlayerRoster from "./components/PlayerRoster";
 import StatsPanel from "./components/StatsPanel";
+import VisualEffectsCanvas from "./components/VisualEffectsCanvas";
 import { TranslationProvider, useTranslation, type Language } from "./i18n";
 import {
   ActiveRound,
@@ -649,7 +650,10 @@ const App = () => {
 
   return (
     <TranslationProvider language={language} setLanguage={setLanguage}>
-      <AppContent />
+      <div className="app-shell">
+        <VisualEffectsCanvas />
+        <AppContent />
+      </div>
     </TranslationProvider>
   );
 };
