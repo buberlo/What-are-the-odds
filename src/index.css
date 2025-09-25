@@ -2,7 +2,7 @@
 
 :root {
   color-scheme: light;
-  --bg: radial-gradient(circle at 20% 10%, #f4f7ff 0%, #f9fbff 38%, #edf2f7 100%);
+  --bg: radial-gradient(circle at 18% 6%, rgba(140, 186, 255, 0.55) 0%, #f3f6ff 36%, #e7f0ff 100%);
   --surface-primary: rgba(255, 255, 255, 0.92);
   --surface-secondary: rgba(255, 255, 255, 0.82);
   --surface-tertiary: rgba(244, 248, 255, 0.88);
@@ -25,6 +25,8 @@
   --max-width: 1100px;
   --shadow-soft: 0 36px 72px rgba(15, 23, 42, 0.12);
   --focus-ring: 0 0 0 1px rgba(10, 132, 255, 0.28), 0 0 0 6px rgba(10, 132, 255, 0.12);
+  --glow-cyan: rgba(79, 156, 255, 0.38);
+  --glow-magenta: rgba(255, 97, 214, 0.35);
 }
 
 @keyframes floatGlow {
@@ -112,6 +114,44 @@ body {
   width: 100%;
 }
 
+.app-shell {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.app-shell::before {
+  content: "";
+  position: fixed;
+  inset: -30vh -35vw;
+  background: radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.55), transparent 58%),
+    radial-gradient(circle at 85% 82%, var(--glow-cyan), transparent 62%),
+    radial-gradient(circle at 12% 88%, var(--glow-magenta), transparent 70%);
+  filter: blur(22px);
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.visual-effects {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  mix-blend-mode: screen;
+}
+
+.visual-effects__canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: 0.92;
+  filter: drop-shadow(0 0 40px rgba(79, 156, 255, 0.35));
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -176,6 +216,8 @@ button {
   padding: 48px 24px 96px;
   display: grid;
   gap: 40px;
+  position: relative;
+  z-index: 2;
 }
 
 @media (min-width: 960px) {
@@ -204,7 +246,7 @@ button {
   position: absolute;
   inset: -20% 30% auto -10%;
   height: 320px;
-  background: radial-gradient(circle at center, rgba(10, 132, 255, 0.25), transparent 72%);
+  background: radial-gradient(circle at center, var(--glow-cyan), transparent 72%);
   animation: floatGlow 18s ease-in-out infinite;
   pointer-events: none;
   opacity: 0.55;
@@ -216,8 +258,8 @@ button {
   position: absolute;
   inset: auto -10% -25% 35%;
   height: 260px;
-  background: radial-gradient(circle at center, rgba(52, 199, 89, 0.2), transparent 70%);
-  opacity: 0.45;
+  background: radial-gradient(circle at center, var(--glow-magenta), transparent 70%);
+  opacity: 0.5;
   filter: blur(10px);
   pointer-events: none;
   z-index: 0;
