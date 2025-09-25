@@ -159,9 +159,7 @@ const AppContent = () => {
   const [activeRound, setActiveRound] = useState<ActiveRound | null>(null);
   const [history, setHistory] = useState<RoundHistoryEntry[]>(persistedState.history);
   const [roundsLaunched, setRoundsLaunched] = useState<number>(persistedState.roundsLaunched);
-  const [activeStage, setActiveStage] = useState<ExperienceStage>(
-    persistedState.history.length > 0 ? "legacy" : "roster",
-  );
+  const [activeStage, setActiveStage] = useState<ExperienceStage>("roster");
   const [insightOverlay, setInsightOverlay] = useState<"stats" | "guide" | null>(null);
 
   const { t, language, setLanguage, languageLabel, languageOptions, availableLanguages } = useTranslation();
