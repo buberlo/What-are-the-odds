@@ -98,6 +98,30 @@ const setupVisualScene = async (container: HTMLDivElement) => {
     ribbon.rotation.x = Math.PI / 2.2;
     cluster.add(ribbon);
 
+    const haloGeometry = new THREE.RingGeometry(1.8, 2.25, 96, 1);
+    const haloMaterial = new THREE.MeshBasicMaterial({
+      color: 0x9adfff,
+      transparent: true,
+      opacity: 0.32,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+    });
+    const halo = new THREE.Mesh(haloGeometry, haloMaterial);
+    halo.rotation.x = Math.PI / 2;
+    cluster.add(halo);
+
+    const pulseGeometry = new THREE.RingGeometry(1.95, 2.05, 128, 1);
+    const pulseMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.42,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
+    const pulse = new THREE.Mesh(pulseGeometry, pulseMaterial);
+    pulse.rotation.x = Math.PI / 2;
+    cluster.add(pulse);
+
     const sparkleGeometry = new THREE.BufferGeometry();
     const sparkleCount = 1800;
     const sparklePositions = new Float32Array(sparkleCount * 3);
@@ -125,6 +149,62 @@ const setupVisualScene = async (container: HTMLDivElement) => {
 
     const sparkles = new THREE.Points(sparkleGeometry, sparkleMaterial);
     cluster.add(sparkles);
+
+    const satelliteGeometry = new THREE.IcosahedronGeometry(0.22, 1);
+    const satelliteMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xff8df2,
+      emissive: 0xff66d0,
+      emissiveIntensity: 0.8,
+      metalness: 0.32,
+      roughness: 0.36,
+      transmission: 0.45,
+      thickness: 1.1,
+      sheen: 0.5,
+    });
+    const satelliteCount = 6;
+    const satellites = new THREE.InstancedMesh(
+      satelliteGeometry,
+      satelliteMaterial,
+      satelliteCount,
+    );
+    cluster.add(satellites);
+
+    const satelliteData = Array.from({ length: satelliteCount }, () => ({
+      radius: 2.5 + Math.random() * 0.9,
+      speed: 0.24 + Math.random() * 0.38,
+      phase: Math.random() * Math.PI * 2,
+      verticalSwing: 0.28 + Math.random() * 0.38,
+    }));
+
+    const auroraGeometry = new THREE.PlaneGeometry(6.6, 4.3, 32, 12);
+    const auroraMaterial = new THREE.MeshBasicMaterial({
+      color: 0x5fb4ff,
+      transparent: true,
+      opacity: 0.16,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+    });
+    const aurora = new THREE.Mesh(auroraGeometry, auroraMaterial);
+    aurora.position.set(0, 1.9, -2.1);
+    aurora.rotation.y = Math.PI / 16;
+    cluster.add(aurora);
+
+    const shimmerGeometry = new THREE.SphereGeometry(2.45, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+    const shimmerMaterial = new THREE.MeshBasicMaterial({
+      color: 0x7bd9ff,
+      transparent: true,
+      opacity: 0.16,
+      wireframe: true,
+    });
+    const shimmer = new THREE.Mesh(shimmerGeometry, shimmerMaterial);
+    shimmer.rotation.x = Math.PI / 2.6;
+    cluster.add(shimmer);
+
+    const tempMatrix = new THREE.Matrix4();
+    const tempQuaternion = new THREE.Quaternion();
+    const tempPosition = new THREE.Vector3();
+    const satelliteScale = new THREE.Vector3(1, 1, 1);
+    const satelliteRotation = new THREE.Euler();
 
     try {
       const webgpuRenderer = new WebGPURenderer({ antialias: true, alpha: true });
@@ -185,6 +265,36 @@ const setupVisualScene = async (container: HTMLDivElement) => {
       rimLight.position.y = Math.sin(elapsed * 0.28) * 2 - 1.4;
       rimLight.position.x = -4.2 + Math.cos(elapsed * 0.31) * 1.4;
 
+      const haloPulse = 1 + Math.sin(elapsed * 0.8) * 0.08;
+      halo.scale.setScalar(haloPulse);
+      haloMaterial.opacity = 0.24 + Math.abs(Math.sin(elapsed * 1.2)) * 0.22;
+
+      const pulseWave = 1 + Math.sin(elapsed * 1.6) * 0.18;
+      pulse.scale.setScalar(pulseWave);
+      pulseMaterial.opacity = 0.2 + Math.abs(Math.sin(elapsed * 2.1)) * 0.35;
+
+      shimmer.rotation.y += 0.0009;
+      shimmer.scale.setScalar(1 + Math.sin(elapsed * 0.24) * 0.06);
+
+      aurora.rotation.y = Math.sin(elapsed * 0.24) * 0.28;
+      aurora.position.y = 1.9 + Math.sin(elapsed * 0.42) * 0.24;
+      auroraMaterial.opacity = 0.1 + Math.abs(Math.sin(elapsed * 0.36)) * 0.18;
+
+      satelliteData.forEach((orbit, index) => {
+        const angle = elapsed * orbit.speed + orbit.phase;
+        const radius = orbit.radius + Math.sin(elapsed * 0.18 + orbit.phase) * 0.12;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const y = Math.sin(angle * 1.6) * orbit.verticalSwing;
+
+        tempPosition.set(x, y, z);
+        satelliteRotation.set(angle * 0.6, angle, angle * 0.18);
+        tempQuaternion.setFromEuler(satelliteRotation);
+        tempMatrix.compose(tempPosition, tempQuaternion, satelliteScale);
+        satellites.setMatrixAt(index, tempMatrix);
+      });
+      satellites.instanceMatrix.needsUpdate = true;
+
       renderer.render(scene, camera);
     };
 
@@ -210,6 +320,17 @@ const setupVisualScene = async (container: HTMLDivElement) => {
       ribbonMaterial.dispose();
       sparkleGeometry.dispose();
       sparkleMaterial.dispose();
+      haloGeometry.dispose();
+      haloMaterial.dispose();
+      pulseGeometry.dispose();
+      pulseMaterial.dispose();
+      satelliteGeometry.dispose();
+      satelliteMaterial.dispose();
+      satellites.dispose();
+      auroraGeometry.dispose();
+      auroraMaterial.dispose();
+      shimmerGeometry.dispose();
+      shimmerMaterial.dispose();
     };
   } catch (error) {
     console.warn("[VisualEffectsCanvas] Unable to initialise visuals", error);

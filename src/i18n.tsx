@@ -107,6 +107,7 @@ const translations = {
         "Nice work finishing the walkthrough. We'll start it again automatically so the next player can follow along.",
       finish: "Finish guide",
       markComplete: "Mark step complete",
+      completedLabel: "Completed",
       tip: "Tip: The lower the odds, the more likely the dare triggers. Use the sweetener field to add rewards or twists.",
     },
     roster: {
@@ -345,6 +346,7 @@ const translations = {
         "Nice hustle finishing the walkthrough. It'll auto-reset so the next mate can have a squiz.",
       finish: "Wrap it up",
       markComplete: "Tick this step",
+      completedLabel: "Done and dusted",
       tip: "Tip: Lower odds mean the dare's more likely to pop. Chuck a sweetener in for extra laughs or bragging rights.",
     },
     roster: {
@@ -583,6 +585,7 @@ const translations = {
         "Starke Leistung beim Walkthrough. Wir starten ihn gleich neu, damit die nächste Person folgen kann.",
       finish: "Guide beenden",
       markComplete: "Schritt abhaken",
+      completedLabel: "Erledigt",
       tip: "Tipp: Je niedriger die Odds, desto eher wird die Mutprobe fällig. Nutze das Bonus-Feld für Belohnungen oder Twists.",
     },
     roster: {
