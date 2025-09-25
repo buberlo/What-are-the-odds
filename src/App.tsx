@@ -432,6 +432,16 @@ const AppContent = () => {
     [stageMeta, stageStatuses, activeStage],
   );
 
+  const visibleStageSequence = useMemo(
+    () =>
+      stageSequence.filter(({ index }) => {
+        if (index === 0) return true;
+        const previousStageId = stageOrder[index - 1];
+        return stageCompletion[previousStageId];
+      }),
+    [stageSequence, stageOrder, stageCompletion],
+  );
+
   const quickStats = useMemo(
     () => [
       { label: t("app.hero.quickStats.players"), value: players.length },
@@ -603,7 +613,7 @@ const AppContent = () => {
         </section>
 
         <nav className="hud-steps" aria-label={t("app.flow.headline")}> 
-          {stageSequence.map(({ meta, status, isLocked, index }) => {
+          {visibleStageSequence.map(({ meta, status, isLocked, index }) => {
             const stepClass = [
               "hud-steps__item",
               `is-${status}`,
@@ -628,6 +638,8 @@ const AppContent = () => {
               >
                 <span className="hud-steps__index">{String(index + 1).padStart(2, "0")}</span>
                 <span className="hud-steps__label">{meta.label}</span>
+                <span className="hud-steps__title">{meta.title}</span>
+                <span className="hud-steps__description">{meta.description}</span>
               </button>
             );
           })}
