@@ -104,6 +104,7 @@ body {
   display: flex;
   justify-content: center;
   line-height: 1.6;
+  overflow-x: hidden;
 }
 
 #root {
