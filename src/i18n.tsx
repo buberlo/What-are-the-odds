@@ -37,25 +37,22 @@ const translations = {
         roster: {
           label: "Crew setup",
           title: "Assemble the crew",
-          description: "Add every player, assign colors and icons, and hype the reveal energy.",
+          description: "Add players and choose their look.",
         },
         dare: {
           label: "Dare forge",
           title: "Build the dare",
-          description:
-            "Pick challenger and target, tune the odds, and add a sweetener before launch.",
+          description: "Select challenger, target, and odds.",
         },
         round: {
           label: "Countdown arena",
           title: "Run the showdown",
-          description:
-            "Collect the secret picks, launch the countdown, and resolve the dare with style.",
+          description: "Collect picks and run the countdown.",
         },
         legacy: {
           label: "Afterglow",
           title: "Relive the highlights",
-          description:
-            "Review history, step into the trophy room, and use the header link anytime for the how-to walkthrough.",
+          description: "Review results and visit the trophy room.",
         },
         controls: {
           prev: "Previous",
@@ -275,26 +272,22 @@ const translations = {
         roster: {
           label: "Crew muster",
           title: "Rally the crew",
-          description:
-            "Add every legend, pick their colours and emoji, and set the vibe before things kick off.",
+          description: "Add the crew and pick their vibe.",
         },
         dare: {
           label: "Dare forge",
           title: "Spin the dare",
-          description:
-            "Lock in the stirrer and target, tweak the odds, and chuck in a sweetener before launch.",
+          description: "Choose who dares who and set the odds.",
         },
         round: {
           label: "Countdown pit",
           title: "Run the showdown",
-          description:
-            "Sneak the secret picks, fire the countdown, and see who owes the dare.",
+          description: "Lock the picks and fire the countdown.",
         },
         legacy: {
           label: "Afterglow",
           title: "Relive the highlights",
-          description:
-            "Scroll the history, duck into the trophy room, and tap the header link anytime for the how-to walkthrough.",
+          description: "Check the history and pop into the trophy room.",
         },
         controls: {
           prev: "Back",
@@ -514,26 +507,22 @@ const translations = {
         roster: {
           label: "Crew vorbereiten",
           title: "Team zusammenstellen",
-          description:
-            "Füge alle Mitspielenden hinzu, wähle Farben und Emojis und bringe Stimmung in die Runde.",
+          description: "Spieler:innen hinzufügen und Style wählen.",
         },
         dare: {
           label: "Mutprobe schmieden",
           title: "Mutprobe planen",
-          description:
-            "Lege Herausfordernde und Zielperson fest, passe die Odds an und ergänze einen Bonus vor dem Start.",
+          description: "Herausfordernde, Zielperson und Odds festlegen.",
         },
         round: {
           label: "Countdown-Arena",
           title: "Showdown starten",
-          description:
-            "Sammle die geheimen Zahlen, starte den Countdown und löse die Mutprobe auf.",
+          description: "Zahlen einsammeln und Countdown starten.",
         },
         legacy: {
           label: "Nachglühen",
           title: "Highlights erneut erleben",
-          description:
-            "Sieh dir den Verlauf an, öffne den Trophäenraum und nutze den Link im Header jederzeit für die Anleitung.",
+          description: "Verlauf prüfen und den Trophäenraum öffnen.",
         },
         controls: {
           prev: "Zurück",
