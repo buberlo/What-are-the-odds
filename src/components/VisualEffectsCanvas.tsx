@@ -1,18 +1,31 @@
 import { useEffect, useRef } from "react";
-import * as THREE from "three";
-import WebGPURenderer from "three/examples/jsm/renderers/webgpu/WebGPURenderer.js";
 
-const VisualEffectsCanvas = () => {
-  const containerRef = useRef<HTMLDivElement | null>(null);
+type WebGPURendererCtor = typeof import(
+  "three/examples/jsm/renderers/webgpu/WebGPURenderer.js"
+).default;
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) {
-      return;
+type RendererInstance =
+  | InstanceType<WebGPURendererCtor>
+  | import("three").WebGLRenderer
+  | null;
+
+const importVisualModules = async () => {
+  const [{ default: THREE }, { default: WebGPURenderer }] = await Promise.all([
+    import("three"),
+    import("three/examples/jsm/renderers/webgpu/WebGPURenderer.js"),
+  ]);
+  return { THREE, WebGPURenderer };
+};
+
+const setupVisualScene = async (container: HTMLDivElement) => {
+  let renderer: RendererInstance = null;
+  let disposed = false;
+
+  try {
+    const { THREE, WebGPURenderer } = await importVisualModules();
+    if (!container.isConnected) {
+      return () => {};
     }
-
-    let renderer: WebGPURenderer | THREE.WebGLRenderer | null = null;
-    let disposed = false;
 
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x101a3a, 0.075);
@@ -113,8 +126,35 @@ const VisualEffectsCanvas = () => {
     const sparkles = new THREE.Points(sparkleGeometry, sparkleMaterial);
     cluster.add(sparkles);
 
+    try {
+      const webgpuRenderer = new WebGPURenderer({ antialias: true, alpha: true });
+      webgpuRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+      webgpuRenderer.toneMappingExposure = 1.1;
+      renderer = webgpuRenderer;
+      await webgpuRenderer.init();
+    } catch (error) {
+      console.warn("[VisualEffectsCanvas] Falling back to WebGLRenderer", error);
+      const webglRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      webglRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+      webglRenderer.toneMappingExposure = 1.1;
+      renderer = webglRenderer;
+    }
+
+    if (!renderer) {
+      return () => {};
+    }
+
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(
+      container.clientWidth || window.innerWidth,
+      container.clientHeight || window.innerHeight,
+      false,
+    );
+    renderer.domElement.classList.add("visual-effects__canvas");
+    container.appendChild(renderer.domElement);
+
     const resize = () => {
-      if (!renderer) return;
+      if (!renderer || disposed) return;
       const width = container.clientWidth || window.innerWidth;
       const height = container.clientHeight || window.innerHeight;
       camera.aspect = width / height;
@@ -123,6 +163,7 @@ const VisualEffectsCanvas = () => {
     };
 
     const animate = (timestamp: number) => {
+      if (!renderer || disposed) return;
       const elapsed = timestamp * 0.001;
 
       core.rotation.x += 0.0018;
@@ -144,43 +185,11 @@ const VisualEffectsCanvas = () => {
       rimLight.position.y = Math.sin(elapsed * 0.28) * 2 - 1.4;
       rimLight.position.x = -4.2 + Math.cos(elapsed * 0.31) * 1.4;
 
-      renderer?.render(scene, camera);
+      renderer.render(scene, camera);
     };
 
-    const setupRenderer = async () => {
-      try {
-        const webgpuRenderer = new WebGPURenderer({ antialias: true, alpha: true });
-        webgpuRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-        webgpuRenderer.toneMappingExposure = 1.1;
-        renderer = webgpuRenderer;
-        await webgpuRenderer.init();
-      } catch (error) {
-        console.warn("[VisualEffectsCanvas] Falling back to WebGLRenderer", error);
-        const webglRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        webglRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-        webglRenderer.toneMappingExposure = 1.1;
-        renderer = webglRenderer;
-      }
-
-      if (!renderer || disposed) {
-        renderer?.dispose();
-        return;
-      }
-
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(
-        container.clientWidth || window.innerWidth,
-        container.clientHeight || window.innerHeight,
-        false,
-      );
-      renderer.domElement.classList.add("visual-effects__canvas");
-      container.appendChild(renderer.domElement);
-
-      renderer.setAnimationLoop(animate);
-      window.addEventListener("resize", resize);
-    };
-
-    setupRenderer();
+    renderer.setAnimationLoop(animate);
+    window.addEventListener("resize", resize);
 
     return () => {
       disposed = true;
@@ -201,6 +210,47 @@ const VisualEffectsCanvas = () => {
       ribbonMaterial.dispose();
       sparkleGeometry.dispose();
       sparkleMaterial.dispose();
+    };
+  } catch (error) {
+    console.warn("[VisualEffectsCanvas] Unable to initialise visuals", error);
+  }
+
+  return () => {
+    disposed = true;
+    if (renderer) {
+      renderer.setAnimationLoop(null);
+      renderer.dispose();
+    }
+  };
+};
+
+const VisualEffectsCanvas = () => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+
+    let cleanup: (() => void) | undefined;
+    let cancelled = false;
+
+    setupVisualScene(container)
+      .then((dispose) => {
+        if (cancelled) {
+          dispose();
+        } else {
+          cleanup = dispose;
+        }
+      })
+      .catch((error) => {
+        console.warn("[VisualEffectsCanvas] Failed to set up scene", error);
+      });
+
+    return () => {
+      cancelled = true;
+      cleanup?.();
     };
   }, []);
 
