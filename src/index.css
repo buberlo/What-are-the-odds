@@ -1004,6 +1004,11 @@ button {
   box-shadow: 0 16px 30px rgba(15, 23, 42, 0.08);
 }
 
+.active-round__stack {
+  margin-top: 28px;
+  min-height: 360px;
+}
+
 .active-round__prompt {
   margin: 0;
   font-size: 1.08rem;
@@ -1124,6 +1129,13 @@ button {
   color: var(--text-muted);
   font-size: 0.9rem;
   line-height: 1.4;
+}
+
+.active-round__card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  height: 100%;
 }
 
 .active-round__step-body {
@@ -1951,13 +1963,15 @@ button {
   }
 }
 
-.howto__card-stack {
+.howto__card-stack,
+.card-stack {
   position: relative;
   min-height: 280px;
   perspective: 1600px;
 }
 
-.howto__card {
+.howto__card,
+.card-stack__card {
   position: absolute;
   inset: 0;
   background: rgba(255, 255, 255, 0.94);
@@ -1977,7 +1991,8 @@ button {
   pointer-events: none;
 }
 
-.howto__card::before {
+.howto__card::before,
+.card-stack__card::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -1989,18 +2004,21 @@ button {
   mix-blend-mode: screen;
 }
 
-.howto__card--current::before {
+.howto__card--current::before,
+.card-stack__card--current::before {
   opacity: 0.8;
 }
 
-.howto__card--active {
+.howto__card--active,
+.card-stack__card--active {
   pointer-events: auto;
   animation: cardElevate 0.48s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 36px 68px rgba(15, 23, 42, 0.2);
   filter: saturate(1.05);
 }
 
-.howto__card--upcoming {
+.howto__card--upcoming,
+.card-stack__card--upcoming {
   opacity: 0.78;
   filter: saturate(0.82);
   transform: translate3d(
@@ -2012,12 +2030,14 @@ button {
     rotateX(calc(var(--stack-position, 0) * -2deg));
 }
 
-.howto__card--hidden {
+.howto__card--hidden,
+.card-stack__card--hidden {
   opacity: 0;
   transform: translate3d(0, 120px, -240px) scale(0.8);
 }
 
-.howto__card--completed {
+.howto__card--completed,
+.card-stack__card--completed {
   transform: translate3d(
       calc(-32% * var(--completed-offset, 1)),
       calc(-18px * var(--completed-offset, 1)),
@@ -2029,13 +2049,15 @@ button {
   filter: blur(1px) saturate(0.85);
 }
 
-.howto__card--advancing {
+.howto__card--advancing,
+.card-stack__card--advancing {
   transform: translate3d(-140%, -12%, -140px) rotate(-14deg) scale(0.88);
   opacity: 0;
   filter: blur(1.6px) saturate(0.75);
 }
 
-.howto__card--promoting {
+.howto__card--promoting,
+.card-stack__card--promoting {
   animation: cardElevate 0.48s cubic-bezier(0.16, 1, 0.3, 1);
   transform: translate3d(0, 0, 0) scale(1);
   opacity: 1;
@@ -2043,7 +2065,8 @@ button {
   box-shadow: 0 36px 60px rgba(79, 156, 255, 0.24);
 }
 
-.howto__card-content {
+.howto__card-content,
+.card-stack__card-content {
   display: grid;
   gap: 12px;
 }
@@ -2068,13 +2091,27 @@ button {
   line-height: 1.55;
 }
 
-.howto__card-actions {
+.howto__card-actions,
+.card-stack__card-actions {
   display: flex;
   justify-content: flex-start;
   margin-top: auto;
 }
 
-.howto__card-status {
+.card-stack__card-actions.active-round__actions {
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.card-stack__card-actions.active-round__resolution {
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.howto__card-status,
+.card-stack__card-status {
   position: absolute;
   top: 22px;
   right: 24px;
@@ -2111,17 +2148,24 @@ button {
     gap: 28px;
   }
 
-  .howto__card-stack {
+  .howto__card-stack,
+  .card-stack {
     min-height: 320px;
   }
 
-  .howto__card {
+  .howto__card,
+  .card-stack__card {
     padding: 22px 20px 20px;
   }
 
-  .howto__card-status {
+  .howto__card-status,
+  .card-stack__card-status {
     top: 18px;
     right: 18px;
+  }
+
+  .active-round__stack {
+    min-height: 320px;
   }
 
   .app-header__bar {

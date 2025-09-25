@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ActiveRound, Player, RoundResolution } from "../types";
 import { useTranslation } from "../i18n";
 
@@ -13,6 +13,8 @@ interface ActiveRoundStageProps {
 
 type CollectingStep = "challenger" | "target";
 
+type GameStepId = "challenger" | "target" | "countdown" | "reveal" | "resolved";
+
 const ActiveRoundStage = ({
   round,
   players,
@@ -25,6 +27,8 @@ const ActiveRoundStage = ({
   const [entryError, setEntryError] = useState<string>("");
   const { t, dictionary } = useTranslation();
   const resolutionLabels = dictionary.activeRound.resolutionLabels;
+
+  const transitionTimer = useRef<number | null>(null);
 
   const challenger = useMemo(
     () => players.find((player) => player.id === round?.dare.challengerId),
@@ -47,6 +51,80 @@ const ActiveRoundStage = ({
     setEntryError("");
   }, [round?.id, collectingStep]);
 
+  const stepOrder: GameStepId[] = ["challenger", "target", "countdown", "reveal", "resolved"];
+
+  const currentStepId: GameStepId = useMemo(() => {
+    if (!round) return "challenger";
+    if (round.stage === "collecting") {
+      if (collectingStep === "target") return "target";
+      return "challenger";
+    }
+    if (round.stage === "countdown") return "countdown";
+    if (round.stage === "reveal") return "reveal";
+    if (round.stage === "resolved") return "resolved";
+    return "challenger";
+  }, [round, collectingStep]);
+
+  const currentStepIndex = stepOrder.indexOf(currentStepId);
+
+  const [activeStepIndex, setActiveStepIndex] = useState(currentStepIndex);
+  const [leavingStepIndex, setLeavingStepIndex] = useState<number | null>(null);
+  const lastRoundIdRef = useRef<string | null>(round?.id ?? null);
+
+  useEffect(() => {
+    const currentId = round?.id ?? null;
+    if (lastRoundIdRef.current !== currentId) {
+      setActiveStepIndex(currentStepIndex);
+      setLeavingStepIndex(null);
+      lastRoundIdRef.current = currentId;
+    }
+  }, [round?.id, currentStepIndex]);
+
+  useEffect(() => {
+    if (currentStepIndex === activeStepIndex) return;
+
+    if (transitionTimer.current) {
+      window.clearTimeout(transitionTimer.current);
+    }
+
+    setLeavingStepIndex(activeStepIndex);
+    setActiveStepIndex(currentStepIndex);
+
+    transitionTimer.current = window.setTimeout(() => {
+      setLeavingStepIndex(null);
+      transitionTimer.current = null;
+    }, 420);
+
+    return () => {
+      if (transitionTimer.current) {
+        window.clearTimeout(transitionTimer.current);
+        transitionTimer.current = null;
+      }
+    };
+  }, [currentStepIndex, activeStepIndex]);
+
+  const completedSteps = useMemo(() => {
+    const completed = new Set<GameStepId>();
+    if (round?.challengerPick) completed.add("challenger");
+    if (round?.targetPick) completed.add("target");
+    if (round && ["reveal", "resolved"].includes(round.stage)) {
+      completed.add("countdown");
+    }
+    if (round?.stage === "resolved") {
+      completed.add("reveal");
+    }
+    return completed;
+  }, [round]);
+
+  useEffect(() => {
+    return () => {
+      if (transitionTimer.current) {
+        window.clearTimeout(transitionTimer.current);
+        transitionTimer.current = null;
+      }
+    };
+  }, []);
+
   if (!round || !challenger || !target) {
     return (
       <section className="panel">
@@ -65,6 +143,11 @@ const ActiveRoundStage = ({
   const revealVisible = round.stage === "reveal" || round.stage === "resolved";
   const isResolved = round.stage === "resolved";
   const matched = revealVisible ? round.challengerPick === round.targetPick : null;
+
+  type CardStyle = CSSProperties & {
+    "--stack-position"?: string;
+    "--completed-offset"?: string;
+  };
 
   const handleSubmit = (playerId: string) => (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -107,61 +190,76 @@ const ActiveRoundStage = ({
         )}
       </div>
 
-      {round.stage === "collecting" && (
-        <>
-          <div className="active-round__steps">
-            <StepCard
-              number={1}
-              title={t("activeRound.collecting.passTo", {
-                player: `${challenger.icon} ${challenger.name}`,
-              })}
-              subtitle={t("activeRound.collecting.keepSecret", { min: 1, max: round.dare.odds })}
-              complete={Boolean(round.challengerPick)}
-            >
-              {collectingStep === "challenger" ? (
-                <form className="active-round__form" onSubmit={handleSubmit(challenger.id)}>
-                  <label className="active-round__form-label" htmlFor="challenger-pick">
-                    {t("activeRound.collecting.formLabel", { min: 1, max: round.dare.odds })}
-                  </label>
-                  <input
-                    id="challenger-pick"
-                    type="number"
-                    min={1}
-                    max={round.dare.odds}
-                    inputMode="numeric"
-                    placeholder={`1-${round.dare.odds}`}
-                    value={entryValue}
-                    onChange={(event) => setEntryValue(event.target.value)}
-                    autoFocus
-                  />
-                  {entryError && <p className="active-round__error">{entryError}</p>}
-                  <button className="button" type="submit">{t("activeRound.collecting.lockChallenger")}</button>
-                </form>
-              ) : (
-                <p className="active-round__step-message">
-                  {t("activeRound.collecting.passDevice", {
-                    player: `${target.icon} ${target.name}`,
-                  })}
-                </p>
-              )}
-            </StepCard>
+      <div className="active-round__stack card-stack" role="list">
+        {stepOrder.map((stepId, index) => {
+          const isCurrent = index === activeStepIndex;
+          const isCompleted = completedSteps.has(stepId) && index < activeStepIndex;
+          const isUpcoming = index > activeStepIndex;
+          const isHidden = index - activeStepIndex > 3;
+          const isLeaving = leavingStepIndex === index;
+          const isPromoting = leavingStepIndex !== null && index === activeStepIndex;
 
-            {round.challengerPick && (
-              <StepCard
-                number={2}
-                title={t("activeRound.collecting.passTo", {
-                  player: `${target.icon} ${target.name}`,
-                })}
-                subtitle={t("activeRound.collecting.noPeek", { min: 1, max: round.dare.odds })}
-                complete={Boolean(round.targetPick)}
-              >
-                {collectingStep === "target" ? (
-                  <form className="active-round__form" onSubmit={handleSubmit(target.id)}>
-                    <label className="active-round__form-label" htmlFor="target-pick">
+          const classNames = ["card-stack__card", "active-round__card"];
+
+          if (isCurrent) {
+            classNames.push("card-stack__card--current", "card-stack__card--active");
+          }
+          if (isPromoting) {
+            classNames.push("card-stack__card--promoting");
+          }
+          if (isLeaving) {
+            classNames.push("card-stack__card--advancing");
+          }
+          if (isUpcoming) {
+            classNames.push("card-stack__card--upcoming");
+          }
+          if (isHidden) {
+            classNames.push("card-stack__card--hidden");
+          }
+          if (isCompleted) {
+            classNames.push("card-stack__card--completed");
+          }
+
+          const style: CardStyle = {
+            zIndex: stepOrder.length - index,
+          };
+
+          if (isUpcoming) {
+            const clamped = Math.min(Math.max(index - activeStepIndex, 0), 3);
+            style["--stack-position"] = clamped.toString();
+          }
+
+          if (index < activeStepIndex) {
+            const depth = Math.min(activeStepIndex - index, 3);
+            style["--completed-offset"] = depth.toString();
+          }
+
+          const stepNumber = index + 1;
+
+          let title = "";
+          let subtitle: string | undefined;
+          let body: JSX.Element | null = null;
+          let actions: JSX.Element | null = null;
+          let numberDisplay: string | number = stepNumber;
+
+          switch (stepId) {
+            case "challenger": {
+              title = t("activeRound.collecting.passTo", {
+                player: `${challenger.icon} ${challenger.name}`,
+              });
+              subtitle = t("activeRound.collecting.keepSecret", {
+                min: 1,
+                max: round.dare.odds,
+              });
+
+              if (isCurrent && round.stage === "collecting" && collectingStep !== "target") {
+                body = (
+                  <form className="active-round__form" onSubmit={handleSubmit(challenger.id)}>
+                    <label className="active-round__form-label" htmlFor="challenger-pick">
                       {t("activeRound.collecting.formLabel", { min: 1, max: round.dare.odds })}
                     </label>
                     <input
-                      id="target-pick"
+                      id="challenger-pick"
                       type="number"
                       min={1}
                       max={round.dare.odds}
@@ -172,116 +270,225 @@ const ActiveRoundStage = ({
                       autoFocus
                     />
                     {entryError && <p className="active-round__error">{entryError}</p>}
-                    <button className="button" type="submit">{t("activeRound.collecting.lockTarget")}</button>
+                    <button className="button" type="submit">
+                      {t("activeRound.collecting.lockChallenger")}
+                    </button>
                   </form>
-                ) : (
-                  <p className="active-round__step-message">{t("activeRound.collecting.readyMessage")}</p>
-                )}
-              </StepCard>
-            )}
+                );
+              } else if (round.challengerPick) {
+                body = (
+                  <p className="active-round__step-message">
+                    {t("activeRound.collecting.passDevice", {
+                      player: `${target.icon} ${target.name}`,
+                    })}
+                  </p>
+                );
+              }
 
-          </div>
+              if (round.stage === "collecting" && isCurrent) {
+                actions = (
+                  <div className="card-stack__card-actions active-round__actions">
+                    <button className="text-button" type="button" onClick={onCancel}>
+                      {t("activeRound.collecting.cancel")}
+                    </button>
+                  </div>
+                );
+              }
+              break;
+            }
+            case "target": {
+              title = t("activeRound.collecting.passTo", {
+                player: `${target.icon} ${target.name}`,
+              });
+              subtitle = t("activeRound.collecting.noPeek", {
+                min: 1,
+                max: round.dare.odds,
+              });
 
-          <footer className="active-round__actions">
-            <button className="text-button" type="button" onClick={onCancel}>
-              {t("activeRound.collecting.cancel")}
-            </button>
-          </footer>
-        </>
-      )}
+              if (isCurrent && round.stage === "collecting" && collectingStep === "target") {
+                body = (
+                  <>
+                    <p className="active-round__step-message">
+                      {t("activeRound.collecting.passDevice", {
+                        player: `${target.icon} ${target.name}`,
+                      })}
+                    </p>
+                    <form className="active-round__form" onSubmit={handleSubmit(target.id)}>
+                      <label className="active-round__form-label" htmlFor="target-pick">
+                        {t("activeRound.collecting.formLabel", { min: 1, max: round.dare.odds })}
+                      </label>
+                      <input
+                        id="target-pick"
+                        type="number"
+                        min={1}
+                        max={round.dare.odds}
+                        inputMode="numeric"
+                        placeholder={`1-${round.dare.odds}`}
+                        value={entryValue}
+                        onChange={(event) => setEntryValue(event.target.value)}
+                        autoFocus
+                      />
+                      {entryError && <p className="active-round__error">{entryError}</p>}
+                      <button className="button" type="submit">
+                        {t("activeRound.collecting.lockTarget")}
+                      </button>
+                    </form>
+                  </>
+                );
+              } else if (round.targetPick) {
+                body = (
+                  <p className="active-round__step-message">
+                    {t("activeRound.collecting.readyMessage")}
+                  </p>
+                );
+              }
 
-      {round.stage === "countdown" && (
-        <div className="active-round__step active-round__step--highlight">
-          <header className="active-round__step-header">
-            <span className="active-round__step-number">⏱</span>
-            <div>
-              <p className="active-round__step-title">{t("activeRound.countdown.title")}</p>
-              <p className="active-round__step-subtitle">{t("activeRound.countdown.subtitle")}</p>
-            </div>
-          </header>
-          <div className="active-round__countdown">
-            <span>{round.countdown}</span>
-            <p>{t("activeRound.countdown.revealIn")}</p>
-          </div>
-          <footer className="active-round__actions">
-            <button className="text-button" type="button" onClick={onCancel}>
-              {t("activeRound.countdown.abort")}
-            </button>
-            <div className="active-round__hint">{t("activeRound.countdown.hint")}</div>
-          </footer>
-        </div>
-      )}
+              if (round.stage === "collecting" && isCurrent) {
+                actions = (
+                  <div className="card-stack__card-actions active-round__actions">
+                    <button className="text-button" type="button" onClick={onCancel}>
+                      {t("activeRound.collecting.cancel")}
+                    </button>
+                  </div>
+                );
+              }
+              break;
+            }
+            case "countdown": {
+              numberDisplay = "⏱";
+              title = t("activeRound.countdown.title");
+              subtitle = t("activeRound.countdown.subtitle");
+              if (round.stage === "countdown" && isCurrent) {
+                body = (
+                  <div className="active-round__countdown">
+                    <span>{round.countdown}</span>
+                    <p>{t("activeRound.countdown.revealIn")}</p>
+                  </div>
+                );
+                actions = (
+                  <div className="card-stack__card-actions active-round__actions">
+                    <button className="text-button" type="button" onClick={onCancel}>
+                      {t("activeRound.countdown.abort")}
+                    </button>
+                    <div className="active-round__hint">{t("activeRound.countdown.hint")}</div>
+                  </div>
+                );
+              } else if (round.stage !== "collecting") {
+                body = (
+                  <p className="active-round__step-message">
+                    {t("activeRound.collecting.readyBody")}
+                  </p>
+                );
+              }
+              break;
+            }
+            case "reveal": {
+              title = t("activeRound.collecting.readyTitle");
+              subtitle = t("activeRound.collecting.readySubtitle");
+              if (round.stage === "reveal" && isCurrent && matched !== null) {
+                body = (
+                  <div className="active-round__reveal">
+                    <p className={`active-round__result${matched ? " is-match" : ""}`}>
+                      {matched ? t("activeRound.reveal.match") : t("activeRound.reveal.miss")}
+                    </p>
+                    <div className="active-round__summary">
+                      <SummaryItem
+                        label={`${challenger.icon} ${challenger.name}`}
+                        value={round.challengerPick ?? "?"}
+                      />
+                      <SummaryItem
+                        label={`${target.icon} ${target.name}`}
+                        value={round.targetPick ?? "?"}
+                      />
+                    </div>
+                  </div>
+                );
+                actions = (
+                  <div className="card-stack__card-actions active-round__resolution">
+                    {(Object.keys(resolutionLabels) as RoundResolution[]).map((resolution) => (
+                      <button
+                        key={resolution}
+                        className="button button--ghost"
+                        type="button"
+                        onClick={() => onResolve(resolution)}
+                      >
+                        {resolutionLabels[resolution]}
+                      </button>
+                    ))}
+                  </div>
+                );
+              } else if (round.stage !== "collecting") {
+                body = (
+                  <p className="active-round__step-message">
+                    {t("activeRound.collecting.readyBody")}
+                  </p>
+                );
+              }
+              break;
+            }
+            case "resolved": {
+              if (isResolved) {
+                numberDisplay = "✔";
+                title = round.matched
+                  ? t("activeRound.resolved.match", { target: `${target.icon} ${target.name}` })
+                  : t("activeRound.resolved.miss", { target: `${target.icon} ${target.name}` });
+                body = (
+                  <div className="active-round__reveal">
+                    <div className="active-round__summary">
+                      <SummaryItem
+                        label={`${challenger.icon} ${challenger.name}`}
+                        value={round.challengerPick ?? "?"}
+                      />
+                      <SummaryItem
+                        label={`${target.icon} ${target.name}`}
+                        value={round.targetPick ?? "?"}
+                      />
+                    </div>
+                    <p className="active-round__resolved-note">
+                      {t("activeRound.resolved.outcome")} {round.resolution && resolutionLabels[round.resolution]}
+                    </p>
+                  </div>
+                );
+                actions = (
+                  <div className="card-stack__card-actions active-round__actions">
+                    <button className="button" type="button" onClick={onArchive}>
+                      {t("activeRound.resolved.clear")}
+                    </button>
+                  </div>
+                );
+              } else {
+                title = t("activeRound.collecting.readyTitle");
+                subtitle = t("activeRound.collecting.readySubtitle");
+              }
+              break;
+            }
+            default:
+              break;
+          }
 
-      {round.stage === "reveal" && (
-        <div className="active-round__reveal">
-          <p className={`active-round__result${matched ? " is-match" : ""}`}>
-            {matched ? t("activeRound.reveal.match") : t("activeRound.reveal.miss")}
-          </p>
-          <div className="active-round__summary">
-            <SummaryItem label={`${challenger.icon} ${challenger.name}`} value={round.challengerPick ?? "?"} />
-            <SummaryItem label={`${target.icon} ${target.name}`} value={round.targetPick ?? "?"} />
-          </div>
-          <div className="active-round__resolution">
-            {(Object.keys(resolutionLabels) as RoundResolution[]).map((resolution) => (
-              <button
-                key={resolution}
-                className="button button--ghost"
-                type="button"
-                onClick={() => onResolve(resolution)}
-              >
-                {resolutionLabels[resolution]}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {isResolved && (
-        <div className="active-round__reveal">
-          <p className={`active-round__result${round.matched ? " is-match" : ""}`}>
-            {round.matched
-              ? t("activeRound.resolved.match", { target: `${target.icon} ${target.name}` })
-              : t("activeRound.resolved.miss", { target: `${target.icon} ${target.name}` })}
-          </p>
-          <div className="active-round__summary">
-            <SummaryItem label={`${challenger.icon} ${challenger.name}`} value={round.challengerPick ?? "?"} />
-            <SummaryItem label={`${target.icon} ${target.name}`} value={round.targetPick ?? "?"} />
-          </div>
-          <p className="active-round__resolved-note">
-            {t("activeRound.resolved.outcome")} {round.resolution && resolutionLabels[round.resolution]}
-          </p>
-          <footer className="active-round__actions">
-            <button className="button" type="button" onClick={onArchive}>
-              {t("activeRound.resolved.clear")}
-            </button>
-          </footer>
-        </div>
-      )}
+          return (
+            <article
+              key={stepId}
+              className={classNames.join(" ")}
+              style={style}
+              role="listitem"
+            >
+              <div className="card-stack__card-content active-round__card-content">
+                <header className="active-round__step-header">
+                  <span className="active-round__step-number">{numberDisplay}</span>
+                  <div>
+                    <p className="active-round__step-title">{title}</p>
+                    {subtitle && <p className="active-round__step-subtitle">{subtitle}</p>}
+                  </div>
+                </header>
+                {body && <div className="active-round__step-body">{body}</div>}
+                {actions}
+              </div>
+            </article>
+          );
+        })}
+      </div>
     </section>
-  );
-};
-
-interface StepCardProps {
-  number: number;
-  title: string;
-  subtitle?: string;
-  complete?: boolean;
-  className?: string;
-  children: ReactNode;
-}
-
-const StepCard = ({ number, title, subtitle, complete, className, children }: StepCardProps) => {
-  return (
-    <div className={`active-round__step${complete ? " is-complete" : ""}${className ? ` ${className}` : ""}`}>
-      <header className="active-round__step-header">
-        <span className="active-round__step-number">{number}</span>
-        <div>
-          <p className="active-round__step-title">{title}</p>
-          {subtitle && <p className="active-round__step-subtitle">{subtitle}</p>}
-        </div>
-      </header>
-      <div className="active-round__step-body">{children}</div>
-    </div>
   );
 };
 

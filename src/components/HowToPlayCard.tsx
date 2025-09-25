@@ -119,16 +119,16 @@ const HowToPlayCard = () => {
             const isHidden = position > 3;
             const isLeaving = advancingIndex === index;
 
-            const classNames = ["howto__card"];
+            const classNames = ["howto__card", "card-stack__card"];
 
-            if (isActive) classNames.push("howto__card--active");
-            if (isCurrent) classNames.push("howto__card--current");
-            if (isCompleted) classNames.push("howto__card--completed");
-            if (isUpcoming) classNames.push("howto__card--upcoming");
-            if (isHidden) classNames.push("howto__card--hidden");
-            if (isLeaving) classNames.push("howto__card--advancing");
+            if (isActive) classNames.push("howto__card--active", "card-stack__card--active");
+            if (isCurrent) classNames.push("howto__card--current", "card-stack__card--current");
+            if (isCompleted) classNames.push("howto__card--completed", "card-stack__card--completed");
+            if (isUpcoming) classNames.push("howto__card--upcoming", "card-stack__card--upcoming");
+            if (isHidden) classNames.push("howto__card--hidden", "card-stack__card--hidden");
+            if (isLeaving) classNames.push("howto__card--advancing", "card-stack__card--advancing");
             if (isAdvancing && index === stepIndex + 1) {
-              classNames.push("howto__card--promoting");
+              classNames.push("howto__card--promoting", "card-stack__card--promoting");
             }
 
             const style: CardStyle = {
@@ -152,7 +152,7 @@ const HowToPlayCard = () => {
                 style={style}
                 role="listitem"
               >
-                <div className="howto__card-content">
+                <div className="howto__card-content card-stack__card-content">
                   <p className="howto__card-eyebrow">
                     {t("howTo.stepLabel", { current: index + 1 })}
                   </p>
@@ -160,7 +160,7 @@ const HowToPlayCard = () => {
                   <p className="howto__card-copy">{step.description}</p>
                 </div>
                 {isActive && (
-                  <div className="howto__card-actions">
+                  <div className="howto__card-actions card-stack__card-actions">
                     <button
                       type="button"
                       className="button"
@@ -174,7 +174,7 @@ const HowToPlayCard = () => {
                   </div>
                 )}
                 {isCompleted && (
-                  <div className="howto__card-status" aria-hidden="true">
+                  <div className="howto__card-status card-stack__card-status" aria-hidden="true">
                     {t("howTo.completedLabel")}
                   </div>
                 )}
