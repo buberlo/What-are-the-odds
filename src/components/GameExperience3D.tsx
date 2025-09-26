@@ -537,9 +537,6 @@ const GameExperience3D = ({
   return (
     <div className="game-scene" ref={containerRef}>
       <canvas ref={canvasRef} className="game-scene__canvas" />
-      <div className="game-scene__overlay">
-        <div className="game-scene__hint">Drag the holodeck nodes or click the luminous ring to advance.</div>
-      </div>
     </div>
   );
 };
