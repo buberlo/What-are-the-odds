@@ -1714,6 +1714,11 @@ button {
   }
 }
 
+.active-round__details {
+  display: grid;
+  gap: 28px;
+}
+
 .active-round__dare {
   display: grid;
   gap: 12px;
@@ -1724,9 +1729,16 @@ button {
   box-shadow: 0 22px 48px rgba(2, 6, 18, 0.5);
 }
 
-.active-round__stack {
+.active-round__deck {
+  position: relative;
   margin-top: 28px;
+  display: flex;
+  justify-content: center;
+}
+
+.active-round__stack {
   min-height: 360px;
+  width: 100%;
 }
 
 .active-round__prompt {
@@ -2683,11 +2695,75 @@ button {
   }
 }
 
+@keyframes deckFloat {
+  0% {
+    transform: translate3d(0, 12px, 0) rotate(-1deg);
+  }
+  50% {
+    transform: translate3d(0, -18px, 0) rotate(1.2deg);
+  }
+  100% {
+    transform: translate3d(0, 12px, 0) rotate(-1deg);
+  }
+}
+
+@keyframes deckGlow {
+  0% {
+    opacity: 0.32;
+    transform: translate3d(-8%, -6%, 0) scale(0.92);
+  }
+  50% {
+    opacity: 0.68;
+    transform: translate3d(4%, 6%, 0) scale(1.05);
+  }
+  100% {
+    opacity: 0.4;
+    transform: translate3d(8%, 10%, 0) scale(1);
+  }
+}
+
+@keyframes cardIridescence {
+  0% {
+    filter: hue-rotate(-8deg) saturate(0.95);
+  }
+  50% {
+    filter: hue-rotate(18deg) saturate(1.25);
+  }
+  100% {
+    filter: hue-rotate(-2deg) saturate(1.05);
+  }
+}
+
 .howto__card-stack,
 .card-stack {
   position: relative;
   min-height: 280px;
   perspective: 1600px;
+}
+
+.card-stack--immersive {
+  width: min(100%, 540px);
+  margin-inline: auto;
+  isolation: isolate;
+}
+
+.card-stack--immersive::before,
+.card-stack--immersive::after {
+  content: "";
+  position: absolute;
+  inset: -22% -16% -28%;
+  border-radius: 36% 48% 42% 40%;
+  background: radial-gradient(
+      circle at 28% 24%,
+      rgba(96, 202, 255, 0.42),
+      transparent 68%
+    ),
+    radial-gradient(circle at 74% 76%, rgba(255, 122, 219, 0.38), transparent 72%);
+  opacity: 0;
+  transform: translate3d(0, 18px, 0) scale(0.9);
+  filter: blur(18px);
+  pointer-events: none;
+  z-index: -1;
 }
 
 .howto__card,
@@ -2888,6 +2964,29 @@ button {
     min-height: 320px;
   }
 
+  .active-round__deck {
+    margin-top: 18px;
+  }
+
+  .card-stack--immersive {
+    animation: deckFloat 7.5s ease-in-out infinite;
+  }
+
+  .card-stack--immersive::before,
+  .card-stack--immersive::after {
+    opacity: 0.55;
+    animation: deckGlow 6.4s ease-in-out infinite alternate;
+  }
+
+  .card-stack--immersive::after {
+    animation-delay: 1.2s;
+    filter: blur(28px);
+  }
+
+  .card-stack--immersive .card-stack__card::before {
+    animation: cardIridescence 5.2s ease-in-out infinite alternate;
+  }
+
   .app-header__bar {
     flex-direction: column;
     align-items: flex-start;
@@ -2963,6 +3062,45 @@ button {
   .app-header {
     padding: 28px 20px;
     gap: 24px;
+  }
+
+  .panel.active-round {
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+
+  .active-round__details {
+    display: none;
+  }
+
+  .active-round__deck {
+    margin: 0;
+    padding-top: 12px;
+  }
+
+  .active-round__stack {
+    min-height: 420px;
+  }
+
+  .card-stack--immersive {
+    width: min(100%, 420px);
+    min-height: 420px;
+  }
+
+  .card-stack--immersive .card-stack__card {
+    border-radius: var(--radius-lg);
+  }
+
+  .card-stack--immersive::before,
+  .card-stack--immersive::after {
+    opacity: 0.7;
+    filter: blur(32px);
+  }
+
+  .card-stack--immersive::after {
+    animation-duration: 7.4s;
   }
 
   .app-header__avatars span {

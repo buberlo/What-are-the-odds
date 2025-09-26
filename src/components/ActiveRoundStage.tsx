@@ -173,24 +173,27 @@ const ActiveRoundStage = ({
 
   return (
     <section className="panel active-round">
-      <header className="panel__header">
-        <div>
-          <p className="panel__eyebrow">{t("activeRound.eyebrow")}</p>
-          <h2 className="panel__title">{t("activeRound.title", { value: round.dare.odds })}</h2>
-        </div>
-        <span className="panel__badge">{t("activeRound.badge", { id: round.id.slice(-4) })}</span>
-      </header>
+      <div className="active-round__details">
+        <header className="panel__header">
+          <div>
+            <p className="panel__eyebrow">{t("activeRound.eyebrow")}</p>
+            <h2 className="panel__title">{t("activeRound.title", { value: round.dare.odds })}</h2>
+          </div>
+          <span className="panel__badge">{t("activeRound.badge", { id: round.id.slice(-4) })}</span>
+        </header>
 
-      <div className="active-round__dare">
-        <p className="active-round__prompt">{round.dare.description}</p>
-        {round.dare.stakes && (
-          <p className="active-round__stakes">
-            {t("activeRound.bonusLabel")}: {round.dare.stakes}
-          </p>
-        )}
+        <div className="active-round__dare">
+          <p className="active-round__prompt">{round.dare.description}</p>
+          {round.dare.stakes && (
+            <p className="active-round__stakes">
+              {t("activeRound.bonusLabel")}: {round.dare.stakes}
+            </p>
+          )}
+        </div>
       </div>
 
-      <div className="active-round__stack card-stack" role="list">
+      <div className="active-round__deck">
+        <div className="active-round__stack card-stack card-stack--immersive" role="list">
         {stepOrder.map((stepId, index) => {
           const isCurrent = index === activeStepIndex;
           const isCompleted = completedSteps.has(stepId) && index < activeStepIndex;
@@ -488,7 +491,8 @@ const ActiveRoundStage = ({
           );
         })}
       </div>
-    </section>
+    </div>
+  </section>
   );
 };
 
