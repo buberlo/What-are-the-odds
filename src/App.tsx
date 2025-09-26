@@ -544,7 +544,9 @@ const AppContent = () => {
       <div className="holodeck__hud">
         <header className="hud-header">
           <div className="hud-header__brand">
-            <span className="hud-header__mark">🎲</span>
+            <span className="hud-header__mark" aria-hidden="true">
+              🎲
+            </span>
             <div className="hud-header__text">
               <p className="hud-header__eyebrow">{t("app.hero.eyebrow")}</p>
               <h1 className="hud-header__title">What are the odds?!</h1>
@@ -582,91 +584,95 @@ const AppContent = () => {
           </div>
         </header>
 
-        <section className="hud-status">
-          <div className="hud-status__copy">
-            <p className="hud-status__eyebrow">{t("app.flow.headline")}</p>
-            <h2 className="hud-status__title">{activeStageMeta.title}</h2>
-            <p className="hud-status__subtitle">{activeStageMeta.description}</p>
-            <div className="hud-status__progress" role="presentation">
-              <span style={{ width: `${stageProgress}%` }} />
-            </div>
-          </div>
-          <div className="hud-status__metrics">
-            {heroPlayers.length > 0 && (
-              <div className="hud-status__avatars" aria-label={t("app.hero.quickStats.players")}>
-                {heroPlayers.map((player) => (
-                  <span key={player.id} style={{ background: player.color }}>
-                    {player.icon}
-                  </span>
-                ))}
-              </div>
-            )}
-            <dl className="hud-status__grid">
-              {quickStats.map((stat) => (
-                <div key={stat.label}>
-                  <dt>{stat.label}</dt>
-                  <dd>{stat.value}</dd>
+        <div className="hud-layout">
+          <div className="hud-overview">
+            <section className="hud-status">
+              <div className="hud-status__copy">
+                <p className="hud-status__eyebrow">{t("app.flow.headline")}</p>
+                <h2 className="hud-status__title">{activeStageMeta.title}</h2>
+                <p className="hud-status__subtitle">{activeStageMeta.description}</p>
+                <div className="hud-status__progress" role="presentation">
+                  <span style={{ width: `${stageProgress}%` }} />
                 </div>
-              ))}
-            </dl>
-          </div>
-        </section>
+              </div>
+              <div className="hud-status__metrics">
+                {heroPlayers.length > 0 && (
+                  <div className="hud-status__avatars" aria-label={t("app.hero.quickStats.players")}>
+                    {heroPlayers.map((player) => (
+                      <span key={player.id} style={{ background: player.color }}>
+                        {player.icon}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <dl className="hud-status__grid">
+                  {quickStats.map((stat) => (
+                    <div key={stat.label}>
+                      <dt>{stat.label}</dt>
+                      <dd>{stat.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            </section>
 
-        <nav className="hud-steps" aria-label={t("app.flow.headline")}> 
-          {visibleStageSequence.map(({ meta, status, isLocked, index }) => {
-            const stepClass = [
-              "hud-steps__item",
-              `is-${status}`,
-              meta.id === activeStage ? "is-active" : "",
-            ]
-              .filter(Boolean)
-              .join(" ");
-            return (
+            <nav className="hud-steps" aria-label={t("app.flow.headline")}>
+              {visibleStageSequence.map(({ meta, status, isLocked, index }) => {
+                const stepClass = [
+                  "hud-steps__item",
+                  `is-${status}`,
+                  meta.id === activeStage ? "is-active" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                return (
+                  <button
+                    key={meta.id}
+                    type="button"
+                    className={stepClass}
+                    onClick={() => {
+                      if (!isLocked) {
+                        goToStage(meta.id);
+                      }
+                    }}
+                    aria-current={meta.id === activeStage ? "step" : undefined}
+                    aria-disabled={isLocked ? true : undefined}
+                    aria-label={t("app.flow.controls.jump", { label: meta.label })}
+                    disabled={isLocked}
+                  >
+                    <span className="hud-steps__index">{String(index + 1).padStart(2, "0")}</span>
+                    <span className="hud-steps__label">{meta.label}</span>
+                    <span className="hud-steps__title">{meta.title}</span>
+                    <span className="hud-steps__description">{meta.description}</span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            <footer className="hud-actions">
               <button
-                key={meta.id}
                 type="button"
-                className={stepClass}
-                onClick={() => {
-                  if (!isLocked) {
-                    goToStage(meta.id);
-                  }
-                }}
-                aria-current={meta.id === activeStage ? "step" : undefined}
-                aria-disabled={isLocked ? true : undefined}
-                aria-label={t("app.flow.controls.jump", { label: meta.label })}
-                disabled={isLocked}
+                className="hud-actions__button hud-actions__button--ghost"
+                onClick={handlePreviousStage}
+                disabled={activeStageIndex === 0}
               >
-                <span className="hud-steps__index">{String(index + 1).padStart(2, "0")}</span>
-                <span className="hud-steps__label">{meta.label}</span>
-                <span className="hud-steps__title">{meta.title}</span>
-                <span className="hud-steps__description">{meta.description}</span>
+                {t("app.flow.controls.prev")}
               </button>
-            );
-          })}
-        </nav>
+              <button
+                type="button"
+                className="hud-actions__button"
+                onClick={handleNextStage}
+                disabled={!canAdvance}
+              >
+                {isLastStage ? t("app.flow.controls.restart") : t("app.flow.controls.next")}
+              </button>
+            </footer>
+          </div>
 
-        <section className={`hud-panel hud-panel--${activeStage}`}>
-          <div className="hud-panel__inner">{renderStage()}</div>
-        </section>
-
-        <footer className="hud-actions">
-          <button
-            type="button"
-            className="hud-actions__button hud-actions__button--ghost"
-            onClick={handlePreviousStage}
-            disabled={activeStageIndex === 0}
-          >
-            {t("app.flow.controls.prev")}
-          </button>
-          <button
-            type="button"
-            className="hud-actions__button"
-            onClick={handleNextStage}
-            disabled={!canAdvance}
-          >
-            {isLastStage ? t("app.flow.controls.restart") : t("app.flow.controls.next")}
-          </button>
-        </footer>
+          <section className={`hud-panel hud-panel--${activeStage}`}>
+            <div className="hud-panel__inner">{renderStage()}</div>
+          </section>
+        </div>
       </div>
 
       {insightOverlay && (
