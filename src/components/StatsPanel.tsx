@@ -65,15 +65,17 @@ const StatsPanel = ({ players, roundsPlayed }: StatsPanelProps) => {
           <span className="therapy-room__icon therapy-room__icon--plant">🪴</span>
           <span className="therapy-room__icon therapy-room__icon--candle">🕯️</span>
         </div>
-        <p className="therapy-room__mantra">{t("stats.sessionMantra")}</p>
-        <ul className="therapy-room__stats">
-          {sessionStats.map((item) => (
-            <li key={item.label}>
-              <span className="therapy-room__stat-value">{item.value}</span>
-              <span className="therapy-room__stat-label">{item.label}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="therapy-room__scene-body">
+          <p className="therapy-room__mantra">{t("stats.sessionMantra")}</p>
+          <ul className="therapy-room__stats">
+            {sessionStats.map((item) => (
+              <li key={item.label}>
+                <span className="therapy-room__stat-value">{item.value}</span>
+                <span className="therapy-room__stat-label">{item.label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
       <div className="therapy-room__shelf" aria-label={t("stats.shelfLabel")}>
@@ -82,7 +84,7 @@ const StatsPanel = ({ players, roundsPlayed }: StatsPanelProps) => {
             <span className="therapy-room__trophy-icon" aria-hidden="true">
               🏵️
             </span>
-            <div>
+            <div className="therapy-room__trophy-copy">
               <p className="therapy-room__trophy-label">{t("stats.trophies.plainLabel")}</p>
               <p className="therapy-room__trophy-note">{plainNote}</p>
             </div>
@@ -118,7 +120,7 @@ const StatsPanel = ({ players, roundsPlayed }: StatsPanelProps) => {
               <span className="therapy-room__trophy-avatar" style={{ background: goldPlayer.color }}>
                 {goldPlayer.icon}
               </span>
-              <div>
+              <div className="therapy-room__trophy-details">
                 <p className="therapy-room__trophy-name">{goldPlayer.name}</p>
                 <p className="therapy-room__trophy-meta">
                   {t("stats.sharedWins", { wins: goldPlayer.wins })} · {t("stats.sharedDares", { dares: goldPlayer.daresCompleted })}
@@ -135,7 +137,7 @@ const StatsPanel = ({ players, roundsPlayed }: StatsPanelProps) => {
             <span className="therapy-room__trophy-icon" aria-hidden="true">
               🏆
             </span>
-            <div>
+            <div className="therapy-room__trophy-copy">
               <p className="therapy-room__trophy-label">{t("stats.trophies.silverLabel")}</p>
               <p className="therapy-room__trophy-note">{t("stats.trophies.silverNote")}</p>
             </div>
@@ -145,7 +147,7 @@ const StatsPanel = ({ players, roundsPlayed }: StatsPanelProps) => {
               <span className="therapy-room__trophy-avatar" style={{ background: silverPlayer.color }}>
                 {silverPlayer.icon}
               </span>
-              <div>
+              <div className="therapy-room__trophy-details">
                 <p className="therapy-room__trophy-name">{silverPlayer.name}</p>
                 <p className="therapy-room__trophy-meta">
                   {t("stats.sharedWins", { wins: silverPlayer.wins })} · {t("stats.sharedDares", { dares: silverPlayer.daresCompleted })}
@@ -162,7 +164,7 @@ const StatsPanel = ({ players, roundsPlayed }: StatsPanelProps) => {
             <span className="therapy-room__trophy-icon" aria-hidden="true">
               🏆
             </span>
-            <div>
+            <div className="therapy-room__trophy-copy">
               <p className="therapy-room__trophy-label">{t("stats.trophies.bronzeLabel")}</p>
               <p className="therapy-room__trophy-note">{t("stats.trophies.bronzeNote")}</p>
             </div>
@@ -172,7 +174,7 @@ const StatsPanel = ({ players, roundsPlayed }: StatsPanelProps) => {
               <span className="therapy-room__trophy-avatar" style={{ background: bronzePlayer.color }}>
                 {bronzePlayer.icon}
               </span>
-              <div>
+              <div className="therapy-room__trophy-details">
                 <p className="therapy-room__trophy-name">{bronzePlayer.name}</p>
                 <p className="therapy-room__trophy-meta">
                   {t("stats.sharedWins", { wins: bronzePlayer.wins })} · {t("stats.sharedDares", { dares: bronzePlayer.daresCompleted })}
