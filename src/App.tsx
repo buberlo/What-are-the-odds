@@ -153,8 +153,6 @@ const createPlayer = (name: string, icon: string, color: string): Player => ({
   daresCompleted: 0,
 });
 
-type StageStatus = "locked" | "available" | "active" | "complete";
-
 const STAGE_ORDER: ExperienceStage[] = ["roster", "dare", "round", "legacy"];
 
 const AppContent = () => {
@@ -215,32 +213,8 @@ const AppContent = () => {
 
   const activeStageIndex = stageOrder.indexOf(activeStage);
   const activeStageMeta = stageMeta[activeStageIndex] ?? stageMeta[0];
-  const stageProgress = ((activeStageIndex + 1) / stageOrder.length) * 100;
   const isLastStage = activeStageIndex === stageOrder.length - 1;
   const canAdvance = isLastStage || stageCompletion[activeStage];
-
-  const stageStatuses = useMemo<Record<ExperienceStage, StageStatus>>(() => {
-    const map = {} as Record<ExperienceStage, StageStatus>;
-    stageOrder.forEach((stageId, index) => {
-      if (stageId === activeStage) {
-        map[stageId] = "active";
-        return;
-      }
-      if (stageCompletion[stageId]) {
-        map[stageId] = "complete";
-        return;
-      }
-      if (index > 0) {
-        const previousId = stageOrder[index - 1];
-        if (!stageCompletion[previousId]) {
-          map[stageId] = "locked";
-          return;
-        }
-      }
-      map[stageId] = "available";
-    });
-    return map;
-  }, [stageOrder, stageCompletion, activeStage]);
 
   const launchRound = (config: DareConfig) => {
     const nextRound: ActiveRound = {
@@ -409,52 +383,6 @@ const AppContent = () => {
     }
   }, [players, history, roundsLaunched]);
 
-  const heroPlayers = useMemo(() => players.slice(0, 3), [players]);
-  const totalDaresCompleted = useMemo(
-    () => players.reduce((total, player) => total + player.daresCompleted, 0),
-    [players],
-  );
-
-  const stageSequence = useMemo(
-    () =>
-      stageMeta.map((meta, index) => {
-        const status = stageStatuses[meta.id];
-        const isLocked = status === "locked" && meta.id !== activeStage;
-        const isComplete = status === "complete";
-        return {
-          meta,
-          index,
-          status,
-          isLocked,
-          isComplete,
-        };
-      }),
-    [stageMeta, stageStatuses, activeStage],
-  );
-
-  const visibleStageSequence = useMemo(
-    () =>
-      stageSequence.filter(({ index }) => {
-        if (index === 0) return true;
-        const previousStageId = stageOrder[index - 1];
-        return stageCompletion[previousStageId];
-      }),
-    [stageSequence, stageOrder, stageCompletion],
-  );
-
-  const quickStats = useMemo(
-    () => [
-      { label: t("app.hero.quickStats.players"), value: players.length },
-      { label: t("app.hero.quickStats.rounds"), value: roundsLaunched },
-      { label: t("app.hero.quickStats.dares"), value: totalDaresCompleted },
-    ],
-    [t, players.length, roundsLaunched, totalDaresCompleted],
-  );
-
-  const handleLanguageChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    setLanguage(event.target.value as Language);
-  };
-
   const goToStage = (stage: ExperienceStage) => {
     const targetIndex = stageOrder.indexOf(stage);
     if (targetIndex === -1 || targetIndex === activeStageIndex) return;
@@ -465,6 +393,10 @@ const AppContent = () => {
       }
     }
     setActiveStage(stage);
+  };
+
+  const handleLanguageChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    setLanguage(event.target.value as Language);
   };
 
   const handlePreviousStage = () => {
@@ -585,92 +517,33 @@ const AppContent = () => {
         </header>
 
         <div className="hud-layout">
-          <div className="hud-overview">
-            <section className="hud-status">
-              <div className="hud-status__copy">
-                <p className="hud-status__eyebrow">{t("app.flow.headline")}</p>
-                <h2 className="hud-status__title">{activeStageMeta.title}</h2>
-                <p className="hud-status__subtitle">{activeStageMeta.description}</p>
-                <div className="hud-status__progress" role="presentation">
-                  <span style={{ width: `${stageProgress}%` }} />
-                </div>
-              </div>
-              <div className="hud-status__metrics">
-                {heroPlayers.length > 0 && (
-                  <div className="hud-status__avatars" aria-label={t("app.hero.quickStats.players")}>
-                    {heroPlayers.map((player) => (
-                      <span key={player.id} style={{ background: player.color }}>
-                        {player.icon}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <dl className="hud-status__grid">
-                  {quickStats.map((stat) => (
-                    <div key={stat.label}>
-                      <dt>{stat.label}</dt>
-                      <dd>{stat.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-            </section>
-
-            <nav className="hud-steps" aria-label={t("app.flow.headline")}>
-              {visibleStageSequence.map(({ meta, status, isLocked, index }) => {
-                const stepClass = [
-                  "hud-steps__item",
-                  `is-${status}`,
-                  meta.id === activeStage ? "is-active" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ");
-                return (
-                  <button
-                    key={meta.id}
-                    type="button"
-                    className={stepClass}
-                    onClick={() => {
-                      if (!isLocked) {
-                        goToStage(meta.id);
-                      }
-                    }}
-                    aria-current={meta.id === activeStage ? "step" : undefined}
-                    aria-disabled={isLocked ? true : undefined}
-                    aria-label={t("app.flow.controls.jump", { label: meta.label })}
-                    disabled={isLocked}
-                  >
-                    <span className="hud-steps__index">{String(index + 1).padStart(2, "0")}</span>
-                    <span className="hud-steps__label">{meta.label}</span>
-                    <span className="hud-steps__title">{meta.title}</span>
-                    <span className="hud-steps__description">{meta.description}</span>
-                  </button>
-                );
-              })}
-            </nav>
-
-            <footer className="hud-actions">
-              <button
-                type="button"
-                className="hud-actions__button hud-actions__button--ghost"
-                onClick={handlePreviousStage}
-                disabled={activeStageIndex === 0}
-              >
-                {t("app.flow.controls.prev")}
-              </button>
-              <button
-                type="button"
-                className="hud-actions__button"
-                onClick={handleNextStage}
-                disabled={!canAdvance}
-              >
-                {isLastStage ? t("app.flow.controls.restart") : t("app.flow.controls.next")}
-              </button>
-            </footer>
-          </div>
-
           <section className={`hud-panel hud-panel--${activeStage}`}>
+            <header className="hud-panel__header">
+              <p className="hud-panel__eyebrow">{activeStageMeta.label}</p>
+              <h2 className="hud-panel__title">{activeStageMeta.title}</h2>
+              <p className="hud-panel__subtitle">{activeStageMeta.description}</p>
+            </header>
             <div className="hud-panel__inner">{renderStage()}</div>
+            <footer className="hud-panel__footer">
+              <div className="hud-actions">
+                <button
+                  type="button"
+                  className="hud-actions__button hud-actions__button--ghost"
+                  onClick={handlePreviousStage}
+                  disabled={activeStageIndex === 0}
+                >
+                  {t("app.flow.controls.prev")}
+                </button>
+                <button
+                  type="button"
+                  className="hud-actions__button"
+                  onClick={handleNextStage}
+                  disabled={!canAdvance}
+                >
+                  {isLastStage ? t("app.flow.controls.restart") : t("app.flow.controls.next")}
+                </button>
+              </div>
+            </footer>
           </section>
         </div>
       </div>
