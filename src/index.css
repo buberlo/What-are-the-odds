@@ -114,13 +114,13 @@ body {
   display: flex;
   justify-content: center;
   line-height: 1.6;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 #root {
-  height: 100%;
-  min-height: 0;
   width: 100%;
+  min-height: 100vh;
 }
 
 .app-shell {
@@ -1008,18 +1008,19 @@ button {
 .holodeck-frame {
   position: relative;
   width: 100%;
-  height: 100%;
-  min-height: 0;
+  min-height: 100vh;
+  height: auto;
   display: flex;
   justify-content: center;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 .holodeck {
   position: relative;
   width: 100%;
-  height: 100%;
-  min-height: 0;
+  min-height: 100vh;
+  height: auto;
   padding: clamp(24px, 4vh, 64px) clamp(24px, 6vw, 96px);
   display: flex;
   align-items: stretch;
@@ -1081,7 +1082,8 @@ button {
   position: relative;
   z-index: 2;
   width: min(var(--max-width), 100%);
-  height: 100%;
+  min-height: 100%;
+  height: auto;
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 24px;
@@ -1091,7 +1093,8 @@ button {
   box-shadow: var(--shadow-soft);
   padding: clamp(24px, 4vw, 40px);
   backdrop-filter: blur(26px);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 .hud-layout {
@@ -1511,23 +1514,25 @@ button {
   html,
   body,
   #root {
-    height: 100%;
+    min-height: 100%;
+    height: auto;
   }
 
   body {
-    overflow: hidden;
+    overflow-x: hidden;
   }
 
   .holodeck {
     padding: 20px 16px 32px;
-    min-height: 0;
-    height: 100%;
-    overflow: hidden;
+    min-height: 100%;
+    height: auto;
+    overflow-x: hidden;
+    overflow-y: visible;
   }
 
   .holodeck-frame {
-    min-height: 0;
-    height: 100%;
+    min-height: 100%;
+    height: auto;
     display: flex;
     align-items: stretch;
   }
@@ -1536,6 +1541,7 @@ button {
     gap: 18px;
     padding: 18px;
     grid-template-rows: auto 1fr;
+    min-height: 100%;
   }
 
   .hud-layout {
