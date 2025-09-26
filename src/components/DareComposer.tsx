@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { DareConfig, Player } from "../types";
 import { useTranslation } from "../i18n";
 
@@ -19,16 +19,19 @@ const shufflePrompts = (items: readonly string[]) => {
 
 const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
   const { t, dictionary } = useTranslation();
+  const prompts = dictionary.composer.prompts;
+  const heatLevels = dictionary.composer.heat;
+  const initialPrompt = prompts[0] ?? "";
+
   const [challengerId, setChallengerId] = useState<string>("");
   const [targetId, setTargetId] = useState<string>("");
-  const [description, setDescription] = useState<string>("");
+  const [description, setDescription] = useState<string>(initialPrompt);
   const [stakes, setStakes] = useState<string>("");
   const [odds, setOdds] = useState<number>(6);
   const [promptQueue, setPromptQueue] = useState<string[]>([]);
 
   const canPlay = players.length >= 2;
-  const prompts = dictionary.composer.prompts;
-  const heatLevels = dictionary.composer.heat;
+  const hasEditedDescriptionRef = useRef(false);
 
   useEffect(() => {
     if (!canPlay) {
@@ -37,18 +40,44 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
       return;
     }
 
-    if (challengerId && !players.some((player) => player.id === challengerId)) {
-      setChallengerId("");
+    setChallengerId((current) => {
+      if (current && players.some((player) => player.id === current)) {
+        return current;
+      }
+      return players[0]?.id ?? "";
+    });
+  }, [canPlay, players]);
+
+  useEffect(() => {
+    if (!canPlay) {
+      setTargetId("");
+      return;
     }
 
-    if (targetId && !players.some((player) => player.id === targetId)) {
-      setTargetId("");
-    }
+    setTargetId((current) => {
+      const challengerExists = challengerId
+        ? players.some((player) => player.id === challengerId)
+        : false;
+      const activeChallengerId = challengerExists ? challengerId : players[0]?.id ?? "";
 
-    if (challengerId && targetId && challengerId === targetId) {
-      setTargetId("");
-    }
-  }, [canPlay, players, challengerId, targetId]);
+      if (
+        current &&
+        current !== activeChallengerId &&
+        players.some((player) => player.id === current)
+      ) {
+        return current;
+      }
+
+      const fallback = players.find((player) => player.id !== activeChallengerId)?.id ?? "";
+      return fallback;
+    });
+  }, [canPlay, players, challengerId]);
+
+  useEffect(() => {
+    if (hasEditedDescriptionRef.current) return;
+    const [firstPrompt] = prompts;
+    setDescription(firstPrompt ?? "");
+  }, [prompts]);
 
   const oddsLabel = useMemo(() => {
     if (odds <= 4) return heatLevels.spicy;
@@ -72,7 +101,8 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
       stakes: stakes.trim() || undefined,
     });
 
-    setDescription("");
+    hasEditedDescriptionRef.current = false;
+    setDescription(prompts[0] ?? "");
     setStakes("");
     setOdds(6);
   };
@@ -81,7 +111,15 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
     setPromptQueue([]);
   }, [prompts]);
 
+  const handleDescriptionChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    if (!hasEditedDescriptionRef.current) {
+      hasEditedDescriptionRef.current = true;
+    }
+    setDescription(event.target.value);
+  };
+
   const randomizePrompt = () => {
+    hasEditedDescriptionRef.current = true;
     setPromptQueue((currentQueue) => {
       let nextQueue = currentQueue;
       if (nextQueue.length === 0) {
@@ -169,7 +207,7 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
             <span>{t("composer.promptLabel")}</span>
             <textarea
               value={description}
-              onChange={(event) => setDescription(event.target.value)}
+              onChange={handleDescriptionChange}
               placeholder={t("composer.promptPlaceholder")}
               rows={3}
               maxLength={140}
