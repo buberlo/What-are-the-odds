@@ -2386,352 +2386,239 @@ button {
   border-style: dashed;
 }
 
-.therapy-room {
+.trophy-room {
   display: grid;
   gap: 24px;
 }
 
-.therapy-room__header .therapy-room__subtitle {
+.trophy-room__header .trophy-room__subtitle {
   margin: 12px 0 0;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   font-size: 0.95rem;
 }
 
-.therapy-room__scene {
-  position: relative;
+.trophy-room__summary,
+.trophy-room__leaderboard {
+  display: grid;
+  gap: 20px;
   padding: 24px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(225, 238, 255, 0.82));
-  border: 1px solid rgba(203, 213, 225, 0.65);
-  box-shadow: 0 22px 44px rgba(15, 23, 42, 0.08);
+  background: linear-gradient(155deg, rgba(28, 38, 72, 0.92), rgba(11, 18, 41, 0.9));
+  border: 1px solid rgba(116, 149, 217, 0.35);
+  box-shadow: 0 20px 42px rgba(5, 11, 28, 0.32);
+  color: var(--text-primary);
+}
+
+.trophy-room__section-header {
   display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
 }
 
-.therapy-room__scene-body {
-  display: grid;
-  gap: 16px;
-}
-
-.therapy-room__scene-visual {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.therapy-room__icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 20px;
-  display: grid;
-  place-items: center;
-  font-size: 2rem;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
-}
-
-.therapy-room__icon--couch {
-  background: linear-gradient(140deg, rgba(250, 250, 255, 0.88), rgba(210, 230, 255, 0.78));
-}
-
-.therapy-room__icon--plant {
-  background: linear-gradient(140deg, rgba(222, 255, 238, 0.88), rgba(194, 240, 214, 0.78));
-}
-
-.therapy-room__icon--candle {
-  background: linear-gradient(140deg, rgba(255, 244, 219, 0.88), rgba(255, 232, 196, 0.78));
-}
-
-.therapy-room__mantra {
+.trophy-room__section-title {
   margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.95rem;
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 
-.therapy-room__stats {
+.trophy-room__section-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.trophy-room__highlights {
   margin: 0;
   padding: 0;
   list-style: none;
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-.therapy-room__stats li {
-  min-width: 0;
-  padding: 12px 16px;
+.trophy-room__highlight {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(209, 213, 223, 0.7);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(138, 171, 239, 0.3);
+  background: rgba(6, 13, 34, 0.78);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  font-size: 0.95rem;
+}
+
+.trophy-room__highlight-icon {
+  font-size: 1.4rem;
+}
+
+.trophy-room__summary-grid {
   display: grid;
-  gap: 4px;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.trophy-room__summary-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(116, 149, 217, 0.35);
+  background: rgba(5, 12, 32, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   text-align: center;
 }
 
-.therapy-room__stat-value {
-  font-size: 1.7rem;
+.trophy-room__summary-value {
+  font-size: 1.6rem;
   font-weight: 600;
   margin: 0;
 }
 
-.therapy-room__stat-label {
+.trophy-room__summary-label {
   font-size: 0.85rem;
   color: var(--text-muted);
 }
 
-.therapy-room__shelf {
-  display: grid;
-  gap: 16px;
-}
-
-@media (min-width: 720px) {
-  .therapy-room__shelf {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.therapy-room__trophy {
-  position: relative;
-  padding: 20px;
-  border-radius: var(--radius-lg);
-  border: 1px solid rgba(209, 213, 223, 0.7);
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
-  display: grid;
-  gap: 16px;
-  overflow: hidden;
-}
-
-.therapy-room__trophy::after {
-  content: "";
-  position: absolute;
-  inset: auto -20% -30% -20%;
-  height: 60%;
-  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.55), transparent 65%);
-  pointer-events: none;
-  opacity: 0.8;
-}
-
-.therapy-room__trophy--plain {
-  background: linear-gradient(160deg, rgba(246, 248, 255, 0.9), rgba(233, 238, 255, 0.88));
-}
-
-.therapy-room__trophy--gold {
-  background: linear-gradient(160deg, rgba(255, 248, 228, 0.9), rgba(255, 236, 189, 0.88));
-  border-color: rgba(250, 204, 21, 0.65);
-}
-
-.therapy-room__trophy--silver {
-  background: linear-gradient(160deg, rgba(243, 245, 255, 0.92), rgba(221, 228, 247, 0.86));
-  border-color: rgba(156, 163, 175, 0.55);
-}
-
-.therapy-room__trophy--bronze {
-  background: linear-gradient(160deg, rgba(254, 243, 237, 0.92), rgba(252, 231, 217, 0.86));
-  border-color: rgba(217, 119, 6, 0.55);
-}
-
-.therapy-room__trophy-head {
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-}
-
-.therapy-room__trophy-copy {
-  display: grid;
-  gap: 6px;
-}
-
-.therapy-room__trophy-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
-  display: grid;
-  place-items: center;
-  font-size: 1.6rem;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(148, 163, 184, 0.38);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
-}
-
-.therapy-room__trophy-label {
+.trophy-room__leaderboard-list {
   margin: 0;
-  font-weight: 600;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
 }
 
-.therapy-room__trophy-note {
-  margin: 4px 0 0;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.therapy-room__trophy-player {
-  display: flex;
+.trophy-room__leaderboard-item {
+  display: grid;
   gap: 14px;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  padding: 12px 16px;
+  padding: 16px;
   border-radius: var(--radius-md);
-  border: 1px solid currentColor;
-  background: rgba(255, 255, 255, 0.86);
-  position: relative;
+  border: 1px solid rgba(116, 149, 217, 0.35);
+  background: rgba(5, 12, 32, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-.therapy-room__trophy-avatar {
+.trophy-room__rank {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.trophy-room__rank-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  background: rgba(19, 32, 68, 0.86);
+  border: 1px solid rgba(138, 171, 239, 0.35);
+  font-size: 0.95rem;
+}
+
+.trophy-room__rank-medal {
+  font-size: 1.2rem;
+}
+
+.trophy-room__leaderboard-player {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.trophy-room__leaderboard-avatar {
   width: 44px;
   height: 44px;
   border-radius: 14px;
   display: grid;
   place-items: center;
   font-size: 1.4rem;
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.7), 0 12px 24px rgba(15, 23, 42, 0.12);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.6), 0 10px 22px rgba(0, 0, 0, 0.2);
 }
 
-.therapy-room__trophy-name {
+.trophy-room__leaderboard-name {
   margin: 0;
   font-weight: 600;
+  color: var(--text-primary);
 }
 
-.therapy-room__trophy-meta {
-  margin: 6px 0 0;
-  color: var(--text-muted);
+.trophy-room__leaderboard-summary {
+  margin: 2px 0 0;
   font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
-.therapy-room__trophy-empty {
+.trophy-room__leaderboard-metrics {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+}
+
+.trophy-room__leaderboard-metric {
+  display: grid;
+  gap: 4px;
+}
+
+.trophy-room__score-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.trophy-room__score-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.trophy-room__empty {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
-.therapy-room__supporters {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 10px;
-}
-
-.therapy-room__supporters li {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.therapy-room__trophy-details {
-  display: grid;
-  gap: 6px;
-}
-
-.therapy-room__supporter-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.6), 0 10px 18px rgba(15, 23, 42, 0.08);
-  font-size: 1.2rem;
-}
-
-.therapy-room__supporter-name {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-}
-
-@media (max-width: 719px) {
-  .therapy-room {
-    gap: 20px;
-  }
-
-  .therapy-room__scene {
-    padding: 18px;
-  }
-
-  .therapy-room__scene-body {
-    gap: 12px;
-  }
-
-  .therapy-room__stats li {
-    padding: 12px;
-  }
-
-  .therapy-room__trophy {
-    padding: 16px;
-    gap: 14px;
-  }
-
-  .therapy-room__trophy-head {
-    align-items: center;
-    gap: 12px;
-  }
-
-  .therapy-room__trophy-icon {
-    width: 42px;
-    height: 42px;
-    font-size: 1.35rem;
-  }
-
-  .therapy-room__trophy-player {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  .therapy-room__trophy-avatar {
-    width: 40px;
-    height: 40px;
-    font-size: 1.2rem;
-  }
-
-  .therapy-room__supporters {
-    gap: 12px;
-  }
-
-  .therapy-room__supporters li {
-    align-items: center;
-  }
+  font-size: 0.95rem;
 }
 
 @media (max-width: 599px) {
-  .therapy-room__scene {
+  .trophy-room__summary,
+  .trophy-room__leaderboard {
+    padding: 20px;
+  }
+
+  .trophy-room__leaderboard-item {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .therapy-room__scene-visual {
-    display: none;
+  .trophy-room__rank {
+    justify-content: flex-start;
   }
 
-  .therapy-room__stat-value {
-    font-size: 1.4rem;
-  }
-
-  .therapy-room__trophy-head {
-    flex-direction: column;
+  .trophy-room__leaderboard-player {
     align-items: flex-start;
-  }
-
-  .therapy-room__trophy-player {
-    padding: 12px;
-  }
-
-  .therapy-room__supporters li {
-    gap: 8px;
   }
 }
 
-@media (min-width: 720px) {
-  .therapy-room__scene {
-    grid-template-columns: auto 1fr;
-    align-items: center;
+@media (min-width: 900px) {
+  .trophy-room {
+    grid-template-columns: 1fr;
   }
 
-  .therapy-room__scene-visual {
-    justify-content: center;
+  .trophy-room__leaderboard-item {
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
-  .therapy-room__scene-body {
-    align-content: center;
+  .trophy-room__leaderboard-metrics {
+    grid-column: auto;
+    grid-template-columns: repeat(3, minmax(90px, 1fr));
+    text-align: right;
+  }
+
+  .trophy-room__leaderboard-metric {
+    justify-items: end;
   }
 }
 
