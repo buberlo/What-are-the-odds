@@ -239,7 +239,7 @@ const GameExperience3D = ({
     const setupRenderer = async () => {
       try {
         const { default: WebGPURenderer } = await import(
-          "three/examples/jsm/renderers/webgpu/WebGPURenderer.js"
+          "three/src/renderers/webgpu/WebGPURenderer.js"
         );
         if (!isMounted) return;
         const renderer = new WebGPURenderer({ canvas, antialias: true, alpha: true });

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
 type WebGPURendererCtor = typeof import(
-  "three/examples/jsm/renderers/webgpu/WebGPURenderer.js"
+  "three/src/renderers/webgpu/WebGPURenderer.js"
 ).default;
 
 type RendererInstance =
@@ -12,7 +12,7 @@ type RendererInstance =
 const importVisualModules = async () => {
   const [{ default: THREE }, { default: WebGPURenderer }] = await Promise.all([
     import("three"),
-    import("three/examples/jsm/renderers/webgpu/WebGPURenderer.js"),
+    import("three/src/renderers/webgpu/WebGPURenderer.js"),
   ]);
   return { THREE, WebGPURenderer };
 };
