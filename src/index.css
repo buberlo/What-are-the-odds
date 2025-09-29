@@ -2010,6 +2010,46 @@ button {
   gap: 20px;
 }
 
+.composer__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.composer__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 12px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+}
+
+.composer__badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.composer__badge--llm {
+  color: #ef7dd7;
+}
+
+.composer__badge--curated {
+  color: #f7b042;
+}
+
+.composer__badge--static {
+  color: #70d7ff;
+}
+
 .composer__row {
   display: grid;
   gap: 14px;
@@ -2059,6 +2099,16 @@ button {
   background: linear-gradient(160deg, rgba(12, 20, 45, 0.92), rgba(7, 13, 33, 0.92));
   border-color: var(--border-strong);
   box-shadow: inset 0 0 0 1px rgba(94, 203, 255, 0.18), 0 22px 44px rgba(2, 8, 24, 0.55);
+}
+
+.composer__notice {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.composer__notice--error {
+  color: var(--danger);
 }
 
 .composer__odds {

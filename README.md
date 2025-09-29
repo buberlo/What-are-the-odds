@@ -2,7 +2,7 @@
 
 A cinematic control room for running the high-stakes party game “What are the odds?!” in person or over video. Manage the roster, craft outrageous dares, collect secret picks, and reveal the outcome together from a single polished web UI.
 
-## Features
+## Highlights
 
 - **Player roster dashboard** – Add or remove players on the fly, pick custom emoji and colors, and monitor each person’s wins, losses, and dares completed.
 - **Dare staging studio** – Choose a challenger, target, odds, and prompt. Launch a new dare in seconds with an interface tuned for touch screens and laptops alike.
@@ -10,116 +10,175 @@ A cinematic control room for running the high-stakes party game “What are the 
 - **Persistent log** – Every round lands in a session history so the group can relive the chaos and settle debates later.
 - **Session pulse** – Spotlight the current MVP and overall stats so the crew sees who’s getting lucky (or not) tonight.
 - **Glassmorphism aesthetic** – Purpose-built styling keeps the app readable in low light while delivering a playful party vibe.
+- **Spicy AI dares** – The “Inspire me” button calls a transformer model for outrageous party dares, with curated fallbacks when the LLM misbehaves.
 
-## Tech stack
+## System architecture
 
-- [Vite](https://vitejs.dev/) + [React](https://react.dev/) with TypeScript for a fast, modern development experience.
-- Hand-crafted CSS (no Tailwind or component kits) for a bespoke visual identity.
-- Zero runtime dependencies beyond React so the production bundle stays tiny and self-contained.
+| Layer | Source | Notes |
+| ----- | ------ | ----- |
+| Web client | `src/` (Vite + React 18 + Three.js) | Ships as static assets served by nginx in production. All requests to `/api/inspire` are forwarded to the inference service through the ingress. |
+| Dare generator API | `server/` (Node 22, Express, `@xenova/transformers`) | Loads the `Xenova/flan-t5-small` text-to-text model, validates the output, and falls back to a curated generator when the model misses the brief. Exposes `GET /api/inspire` and `/healthz`. |
+| Kubernetes deployment | `k8s.yaml` + `kustomization.yaml` | Deploys two Deployments (`what-are-the-odds` and `what-are-the-odds-llm`), paired Services, and a TLS-enabled Ingress handled by cert-manager. |
 
-## Getting started
+The generator now returns structured responses of the form:
 
-1. **Install dependencies**
+```json
+{
+  "suggestion": "Pour a salted caramel body shot…",
+  "source": "curated" // "llm" when the transformer output is accepted
+}
+```
+
+The React UI surfaces a badge next to the “Inspire me” button indicating whether the current prompt is AI-generated, curated, or one of the classic presets.
+
+## Local development
+
+> **Node requirements:** Vite 7 expects Node ≥ 20.19 or ≥ 22.12. Install the latest LTS (22.x) before working on the repo.
+
+1. **Install dependencies for the web client**
 
    ```bash
    npm install
    ```
 
-2. **Run the dev server**
+2. **Install dependencies for the inference service**
+
+   ```bash
+   cd server
+   npm install
+   ```
+
+3. **Run the transformer service locally**
+
+   The web dev server also defaults to port 8080, so run the LLM on 8081 (or any free port) while setting the cache directory:
+
+   ```bash
+   cd server
+   PORT=8081 TRANSFORMERS_CACHE=./cache npm start
+   ```
+
+4. **Proxy API calls when using `npm run dev`**
+
+   Vite’s dev server expects `/api/inspire` to be served from the same origin. Add a temporary proxy block to `vite.config.ts` while developing:
+
+   ```ts
+   export default defineConfig({
+     server: {
+       host: "::",
+       port: 8080,
+       proxy: {
+         "/api": {
+           target: "http://localhost:8081",
+           changeOrigin: true,
+         },
+       },
+     },
+     // …
+   });
+   ```
+
+   Restart Vite after making the change.
+
+5. **Start the web client**
 
    ```bash
    npm run dev
    ```
 
-   Vite will report the local URL (defaults to `http://localhost:5173`). Hot reloading is enabled by default.
+   The site will be available at `http://localhost:8080`. “Inspire me” will now hit the local transformer service and the UI badge will reflect whether the response came from AI (`🔥 AI dare`), the curated fallback (`🎲 Curated dare`), or the static preset deck (`📚 Classic dare`).
 
-3. **Lint the project**
-
-   ```bash
-   npm run lint
-   ```
-
-4. **Create a production build**
+6. **Optional sanity checks**
 
    ```bash
-   npm run build
+   npm run lint     # type-aware ESLint
+   npm run build    # creates dist/ for production
+   npm run preview  # serves dist/ on port 4173 by default
    ```
 
-   The optimized assets land in `dist/` and can be served by any static HTTP server.
+## Container images
 
-5. **Preview the production build locally**
+Two Dockerfiles live at repository root:
 
-   ```bash
-   npm run preview
-   ```
+- `Dockerfile` builds the Vite bundle in a Node 22 Alpine builder, then serves it with `nginx:alpine` using `nginx.conf` for single-page routing.
+- `Dockerfile.inference` installs the Node inference service on `node:22-slim`, adds `libgomp1` for ONNX runtime, and starts `server/index.js`. The container exposes port 8080 and persists the transformer cache at `/app/cache` (configurable via `TRANSFORMERS_CACHE`).
 
-## Container & Kubernetes deployment
+Example build & push flow (mirrors the commands used in the repo):
 
-1. **Build a container image** using any static web server. Here’s a minimal example with [Caddy](https://caddyserver.com/):
+```bash
+# Web UI
+docker build -t localhost:32000/what-are-the-odds-web:latest .
+docker push localhost:32000/what-are-the-odds-web:latest
 
-   ```dockerfile
-   FROM node:22-alpine AS build
-   WORKDIR /app
-   COPY package*.json .
-   RUN npm install
-   COPY . .
-   RUN npm run build
-   
-   FROM caddy:2-alpine
-   COPY --from=build /app/dist /srv
-   EXPOSE 8080
-   CMD ["caddy", "file-server", "--root", "/srv", "--listen", ":8080"]
-   ```
+# Inference service
+docker build -f Dockerfile.inference -t localhost:32000/what-are-the-odds-llm:latest .
+docker push localhost:32000/what-are-the-odds-llm:latest
+```
 
-2. **Push the image** to your registry (`docker buildx build --push ...`).
+## Kubernetes deployment
 
-3. **Deploy to Kubernetes** with a simple Deployment + Service manifest:
+All manifests live in `k8s.yaml` and are wrapped by `kustomization.yaml` so you can deploy with one command:
 
-   ```yaml
-   apiVersion: apps/v1
-   kind: Deployment
-   metadata:
-     name: what-are-the-odds
-   spec:
-     replicas: 1
-     selector:
-       matchLabels:
-         app: what-are-the-odds
-     template:
-       metadata:
-         labels:
-           app: what-are-the-odds
-       spec:
-         containers:
-           - name: web
-             image: ghcr.io/your-user/what-are-the-odds:latest
-             ports:
-               - containerPort: 8080
-   ---
-   apiVersion: v1
-   kind: Service
-   metadata:
-     name: what-are-the-odds
-   spec:
-     selector:
-       app: what-are-the-odds
-     ports:
-       - name: http
-         port: 80
-         targetPort: 8080
-     type: LoadBalancer
-   ```
+```bash
+kubectl apply -k .
+```
 
-Expose the service via your preferred ingress solution and you’re ready to run the game from anywhere.
+The manifest provisions:
 
-## Project scripts
+- `Deployment what-are-the-odds` – serves the web bundle on port 80 from `localhost:32000/what-are-the-odds-web:latest`.
+- `Deployment what-are-the-odds-llm` – runs the transformer API on port 8080 from `localhost:32000/what-are-the-odds-llm:latest` with a 1 Gi ephemeral cache.
+- `Service` objects for each deployment (ClusterIP on ports 80 and 8080).
+- An `Ingress` bound to class `public` with TLS handled by cert-manager using the `letsencrypt-prod` ClusterIssuer. TLS SANs cover:
+  - `whate-are-the-odds.com`
+  - `www.whate-are-the-odds.com`
 
-| Script          | Description                                      |
-| --------------- | ------------------------------------------------ |
-| `npm run dev`   | Start the local dev server with hot reloading.    |
-| `npm run build` | Generate a production-ready build in `dist/`.     |
-| `npm run lint`  | Run ESLint across the project.                    |
-| `npm run preview` | Serve the `dist/` output for a final smoke test. |
+> **Prerequisites**
+>
+> - cert-manager installed with a `ClusterIssuer/letsencrypt-prod` in the cluster.
+> - An ingress controller registered as class `public`.
+> - DNS A records for the domains above pointing at the ingress.
+> - A registry reachable as `localhost:32000` (e.g., the MicroK8s registry add-on).
+
+### Operational tips
+
+- **Deployments** – Scale the web or inference deployments independently with `kubectl scale deployment what-are-the-odds[-llm] --replicas=N`.
+- **Health checks** – The inference pod exposes `/healthz` used by readiness and liveness probes. The web pod is probed on `/`.
+- **Logs** – The transformer service logs a single structured line per request, e.g. `[inspire] source=llm` or `[inspire] source=curated`. Errors are emitted as `[inspire] source=error …` with the stack trace.
+- **Certificates** – Inspect progress with `kubectl describe certificate what-are-the-odds-com-tls -n <namespace>`.
+
+## Inspire API reference
+
+```
+GET /api/inspire
+```
+
+Response:
+
+```json
+{
+  "suggestion": "Sit across the challenger's lap while describing…",
+  "source": "curated"  // "llm" when the transformer output is accepted
+}
+```
+
+Error responses include `{"error": "Failed to generate dare"}` with HTTP 500 and a corresponding log entry.
+
+The service enforces:
+
+- 8–24 word suggestions.
+- Mandatory mention of “target” or “challenger”.
+- Filters for violence, minors, animals, drugs, and template leakage.
+- Automatic punctuation and curated fallback prompts covering body shots, blindfolds, roleplay, and other party-friendly dares.
+
+## Project scripts (web)
+
+| Script | Description |
+| ------ | ----------- |
+| `npm run dev` | Start the Vite dev server (default port 8080). |
+| `npm run build` | Generate a production build in `dist/`. |
+| `npm run preview` | Serve `dist/` locally for a final smoke test. |
+| `npm run lint` | Run ESLint across the project. |
+
+The inference service has its own `npm start` script inside `server/package.json`.
 
 ## License
 

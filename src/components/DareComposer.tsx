@@ -29,6 +29,9 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
   const [stakes, setStakes] = useState<string>("");
   const [odds, setOdds] = useState<number>(6);
   const [promptQueue, setPromptQueue] = useState<string[]>([]);
+  const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
+  const [inspirationError, setInspirationError] = useState<string | null>(null);
+  const [inspirationSource, setInspirationSource] = useState<"llm" | "curated" | "static" | null>(null);
 
   const canPlay = players.length >= 2;
   const hasEditedDescriptionRef = useRef(false);
@@ -103,6 +106,7 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
 
     hasEditedDescriptionRef.current = false;
     setDescription(prompts[0] ?? "");
+    setInspirationSource(prompts[0] ? "static" : null);
     setStakes("");
     setOdds(6);
   };
@@ -118,8 +122,7 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
     setDescription(event.target.value);
   };
 
-  const randomizePrompt = () => {
-    hasEditedDescriptionRef.current = true;
+  const applyFallbackPrompt = () => {
     setPromptQueue((currentQueue) => {
       let nextQueue = currentQueue;
       if (nextQueue.length === 0) {
@@ -134,6 +137,40 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
       setDescription(nextPrompt ?? "");
       return rest;
     });
+    setInspirationSource("static");
+  };
+
+  const randomizePrompt = async () => {
+    if (isGeneratingPrompt) return;
+    hasEditedDescriptionRef.current = true;
+    setInspirationError(null);
+    setIsGeneratingPrompt(true);
+    setInspirationSource(null);
+
+    try {
+      const response = await fetch("/api/inspire");
+      if (!response.ok) {
+        throw new Error("Failed to fetch inspiration");
+      }
+
+      const data: { suggestion?: unknown; source?: unknown } = await response.json();
+      const suggestion = typeof data.suggestion === "string" ? data.suggestion.trim() : "";
+      if (!suggestion) {
+        throw new Error("Empty suggestion");
+      }
+      setDescription(suggestion);
+      if (data.source === "llm" || data.source === "curated") {
+        setInspirationSource(data.source);
+      } else {
+        setInspirationSource("curated");
+      }
+    } catch (error) {
+      console.error("Falling back to preset prompt", error);
+      setInspirationError(t("composer.inspireError"));
+      applyFallbackPrompt();
+    } finally {
+      setIsGeneratingPrompt(false);
+    }
   };
 
   const swapPlayers = () => {
@@ -149,15 +186,32 @@ const DareComposer = ({ players, disabled, onLaunch }: DareComposerProps) => {
           <p className="panel__eyebrow">{t("composer.eyebrow")}</p>
           <h2 className="panel__title">{t("composer.title")}</h2>
         </div>
-        <button
-          type="button"
-          className="text-button"
-          onClick={randomizePrompt}
-          disabled={!canPlay || disabled}
-        >
-          {t("composer.inspire")}
-        </button>
+        <div className="composer__actions">
+          <button
+            type="button"
+            className="text-button"
+            onClick={randomizePrompt}
+            disabled={!canPlay || disabled || isGeneratingPrompt}
+            aria-busy={isGeneratingPrompt}
+          >
+            {isGeneratingPrompt ? t("composer.inspireLoading") : t("composer.inspire")}
+          </button>
+          {inspirationSource ? (
+            <span
+              className={`composer__badge composer__badge--${inspirationSource}`}
+              role="status"
+            >
+              {t(`composer.inspireSource.${inspirationSource}`)}
+            </span>
+          ) : null}
+        </div>
       </header>
+
+      {inspirationError ? (
+        <p className="composer__notice composer__notice--error" role="status">
+          {inspirationError}
+        </p>
+      ) : null}
 
       {!canPlay ? (
         <p className="panel__empty">{t("composer.empty")}</p>

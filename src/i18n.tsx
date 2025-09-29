@@ -129,6 +129,13 @@ const translations = {
       eyebrow: "Set the dare",
       title: "Odds builder",
       inspire: "Inspire me",
+      inspireLoading: "Spinning up an idea…",
+      inspireError: "Generator is taking a breather. Pulled a classic prompt instead.",
+      inspireSource: {
+        llm: "🔥 AI dare",
+        curated: "🎲 Curated dare",
+        static: "📚 Classic dare",
+      },
       empty: "Add at least two players to open the odds board.",
       challengerLabel: "Challenger",
       challengerPlaceholder: "Select a challenger",
@@ -368,6 +375,13 @@ const translations = {
       eyebrow: "Spin a dare",
       title: "Odds cobbler",
       inspire: "Hit me with inspo",
+      inspireLoading: "Cooking up an idea…",
+      inspireError: "AI's gone walkabout, grabbed an old faithful instead.",
+      inspireSource: {
+        llm: "🔥 AI dare",
+        curated: "🎲 Curated dare",
+        static: "📚 Classic dare",
+      },
       empty: "Stack at least two mates to unlock the odds board.",
       challengerLabel: "Challenger",
       challengerPlaceholder: "Pick the stirrer",
@@ -607,6 +621,13 @@ const translations = {
       eyebrow: "Mutprobe festlegen",
       title: "Odds-Planer",
       inspire: "Inspiriere mich",
+      inspireLoading: "Idee wird generiert…",
+      inspireError: "Generator nicht erreichbar. Greife auf Klassiker zurück.",
+      inspireSource: {
+        llm: "🔥 KI-Wagnis",
+        curated: "🎲 Kuratierte Mutprobe",
+        static: "📚 Klassiker",
+      },
       empty: "Füge mindestens zwei Spieler:innen hinzu, um das Odds-Board zu öffnen.",
       challengerLabel: "Herausforder:in",
       challengerPlaceholder: "Wähle eine herausfordernde Person",
@@ -820,4 +841,3 @@ export const useTranslation = () => {
   }
   return context;
 };
-
