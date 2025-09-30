@@ -3971,8 +3971,12 @@ button {
   width: 200px;
   height: 200px;
   border-radius: 16px;
-  background: #fff;
+  background: var(--surface-secondary);
   padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 0 1px var(--border-soft), 0 24px 65px rgba(5, 9, 20, 0.55);
 }
 
 .link-dare__qr-placeholder {
