@@ -1,228 +1,225 @@
 # What are the odds?!
 
-A cinematic control room for running the high-stakes party game “What are the odds?!” in person or over video. Manage the roster, craft outrageous dares, collect secret picks, and reveal the outcome together from a single polished web UI.
+High-stakes party dares with commit–reveal fairness, live invite flows, and photo proof sharing. The repo contains both the Vite-powered web client and the Node-based API/worker service used in production.
 
-## Highlights
+## Feature overview
 
-- **Player roster dashboard** – Add or remove players on the fly, pick custom emoji and colors, and monitor each person’s wins, losses, and dares completed.
-- **Dare staging studio** – Choose a challenger, target, odds, and prompt. Launch a new dare in seconds with an interface tuned for touch screens and laptops alike.
-- **Live round controller** – Collect secret numbers, trigger a countdown reveal, then log whether the dare was completed, remixed, or declined.
-- **Persistent log** – Every round lands in a session history so the group can relive the chaos and settle debates later.
-- **Session pulse** – Spotlight the current MVP and overall stats so the crew sees who’s getting lucky (or not) tonight.
-- **Glassmorphism aesthetic** – Purpose-built styling keeps the app readable in low light while delivering a playful party vibe.
-- **Spicy AI dares** – The “Inspire me” button calls a transformer model for outrageous party dares, with curated fallbacks when the LLM misbehaves.
+| Feature | Flag | Default | Notes |
+| ------- | ---- | ------- | ----- |
+| Link-driven dares (Phase 1) | `FEATURE_LINK_DARES` / `VITE_FEATURE_LINK_DARES` | off | Invite creation, JWT-secured landing page, commit–reveal resolution, SSE updates. |
+| Proof pipeline (Phase 2) | `FEATURE_PROOFS` / `VITE_FEATURE_PROOFS` | off | Direct-to-storage uploads, sharp processing, thumbnails, publish controls, public proof pages. |
 
-## System architecture
+Enable the matching client and server flags when developing a feature set.
 
-| Layer | Source | Notes |
-| ----- | ------ | ----- |
-| Web client | `src/` (Vite + React 18 + Three.js) | Ships as static assets served by nginx in production. All requests to `/api/inspire` are forwarded to the inference service through the ingress. |
-| Dare generator API | `server/` (Node 22, Express, `@xenova/transformers`) | Loads the `Xenova/flan-t5-small` text-to-text model, validates the output, and falls back to a curated generator when the model misses the brief. Exposes `GET /api/inspire` and `/healthz`. |
-| Kubernetes deployment | `k8s.yaml` + `kustomization.yaml` | Deploys two Deployments (`what-are-the-odds` and `what-are-the-odds-llm`), paired Services, and a TLS-enabled Ingress handled by cert-manager. |
+## Getting started
 
-## Feature flag: link-driven dares (Phase 1)
+### Prerequisites
 
-Phase 1 of the link-driven dare flow ships behind the `FEATURE_LINK_DARES` flag and is disabled by default. Enable it in both the web client and API to surface the new endpoints and UI:
+- Node.js 22+
+- npm 10+
+- libvips (for sharp) when running the server locally on Linux/macOS
+
+### Install dependencies
 
 ```bash
-# Web UI
-VITE_FEATURE_LINK_DARES=1 npm run dev
+# Web client
+npm install
 
-# API / inference service
+# API / worker service
 cd server
-FEATURE_LINK_DARES=1 npm start
+npm install
 ```
 
-The server stores link dares in SQLite (via `better-sqlite3`). Run migrations once per environment:
+### Environment variables
+
+A starter `.env.example` is provided:
+
+```
+VITE_FEATURE_LINK_DARES=0
+VITE_FEATURE_PROOFS=0
+FEATURE_LINK_DARES=0
+FEATURE_PROOFS=0
+BASE_URL=http://localhost:3000
+INVITE_JWT_SECRET=dev-secret
+STORAGE_DRIVER=disk
+DISK_ROOT=./storage
+PUBLIC_ASSET_BASE=
+PROOF_MAX_IMAGE_BYTES=10485760
+PROOF_WATERMARK=1
+S3_ENDPOINT=
+S3_REGION=us-east-1
+S3_BUCKET=
+S3_ACCESS_KEY=
+S3_SECRET_KEY=
+```
+
+Copy this file to `.env` (client root) and `.env` inside `server/` as needed, then toggle the flags you require.
+
+### Database migrations
+
+The API uses SQLite via `better-sqlite3`.
 
 ```bash
 cd server
-FEATURE_LINK_DARES=1 npm run migrate
+FEATURE_LINK_DARES=1 FEATURE_PROOFS=1 npm run migrate
 ```
 
-### API surface (flagged)
+### Running locally
 
-| Endpoint | Method | Description |
-| -------- | ------ | ----------- |
-| `/api/dares` | `POST` | Create a new link dare with commit–reveal hash, expiry window validation, and a signed invite JWT. |
-| `/api/i/:slug` | `GET` | Fetch a redacted dare view when presenting an invite link (`t=<jwt>` query parameter required). |
-| `/api/dares/:id/accept` | `POST` | Single-use invite acceptance. Requires `Idempotency-Key`, CSRF headers, and the invite JWT. |
-| `/api/dares/:id/pick` | `POST` | Reveal the recipient’s number, verify the original commit hash, and resolve the dare. |
-| `/api/dares/:id/stream` | `GET` (SSE) | Live stream of `dare.created`, `dare.accepted`, `dare.resolved`, `dare.expired`, plus heartbeats. |
+Start the API first, then the Vite dev server. Remember to enable the same flags for both services.
 
-### Client experience
+```bash
+# API (port 3001 by default)
+cd server
+FEATURE_LINK_DARES=1 FEATURE_PROOFS=1 npm start
 
-With the flag on, the HUD header exposes a “Create dare” modal that walks through title, description, range, expiry, and the committed number, then returns a copy-ready invite URL and QR code. Visiting `/i/<slug>?t=<token>` renders the invite landing view with the countdown, fairness badge, accept button, and live result banner that updates via SSE.
+# Web client (port 8080)
+cd ..
+VITE_FEATURE_LINK_DARES=1 VITE_FEATURE_PROOFS=1 npm run dev
+```
 
-### Testing
+During development, configure Vite to proxy `/api` and `/p` to the API server by updating `vite.config.ts`:
 
-Server-side unit, integration, and E2E coverage lives in `server/test/link-dares.test.js`. Run them with:
+```ts
+export default defineConfig({
+  server: {
+    host: "::",
+    port: 8080,
+    proxy: {
+      "/api": { target: "http://localhost:3001", changeOrigin: true },
+      "/p": { target: "http://localhost:3001", changeOrigin: true },
+    },
+  },
+  // ...
+});
+```
+
+### Tests
+
+Server unit/integration tests (Vitest):
 
 ```bash
 cd server
 npm test
 ```
 
-The generator now returns structured responses of the form:
+Client tests are not yet automated; rely on manual QA for invite and proof flows until additional coverage is added.
 
-```json
-{
-  "suggestion": "Pour a salted caramel body shot…",
-  "source": "curated" // "llm" when the transformer output is accepted
-}
-```
+## Phase 1: Link-driven dares
 
-The React UI surfaces a badge next to the “Inspire me” button indicating whether the current prompt is AI-generated, curated, or one of the classic presets.
+With feature flags enabled:
 
-## Local development
+- **Create dare (UI)** – From the HUD modal, input title, category, odds, and expiry. The app calls `POST /api/dares`, enforcing expiry bounds (5 minutes to 7 days), generates a slug, and returns an invite URL + QR code.
+- **Invite landing** – `/i/:slug?t=<jwt>` verifies the JWT, shows a live countdown, and listens to `/api/dares/:id/stream` (SSE) for state changes.
+- **Acceptance** – `POST /api/dares/:id/accept` requires an `Idempotency-Key`, CSRF token, and invite JWT. Acceptances track IP/user-agent and transition the dare to `accepted` state.
+- **Resolution** – `POST /api/dares/:id/pick` reveals the recipient’s number, validates the commit hash, and resolves the dare (`open → accepted → resolved`). The SSE stream broadcasts `dare.resolved` to all subscribers.
 
-> **Node requirements:** Vite 7 expects Node ≥ 20.19 or ≥ 22.12. Install the latest LTS (22.x) before working on the repo.
+Key files:
 
-1. **Install dependencies for the web client**
+- `src/components/LinkDareModal.tsx`
+- `src/components/LinkDareInvitePage.tsx`
+- `server/src/app.js` (routes and SSE)
+- `server/test/proofs.test.js` (includes lifecycle coverage for proof pipeline and health)
 
-   ```bash
-   npm install
-   ```
+## Phase 2: Photo proofs
 
-2. **Install dependencies for the inference service**
+The proof feature introduces presigned uploads, processing, and public proof pages. Highlights:
 
-   ```bash
-   cd server
-   npm install
-   ```
+- **Presign** – `POST /api/proofs/presign` validates size/mime/sha256 and issues a single-use upload token (S3 presign or local proxy upload).
+- **Finalize** – `POST /api/dares/:id/proofs` verifies checksum, records the proof, and enqueues processing.
+- **Worker** – `server/src/workers/proofProcessor.js` uses sharp to create JPEG + thumbnails, optional watermark, and emits `proof.processed`.
+- **Proof page** – `/p/:slug` serves an OG-rich HTML page for public/unlisted proofs linked to the dare.
+- **UI updates** – The invite landing page prompts for proof upload when a dare is matched. The leaderboard (Stats panel) gains a “with proofs” toggle that fetches proof tiles when `FEATURE_PROOFS` is enabled.
 
-3. **Run the transformer service locally**
+Supporting files:
 
-   The web dev server also defaults to port 8080, so run the LLM on 8081 (or any free port) while setting the cache directory:
+- `src/components/ProofCaptureModal.tsx`
+- `src/components/ProofSharePanel.tsx`
+- `src/utils/hash.ts`
+- `server/src/proofs.js`
+- `server/src/storage.js`
+- `server/test/proofs.test.js`
 
-   ```bash
-   cd server
-   PORT=8081 TRANSFORMERS_CACHE=./cache npm start
-   ```
+### Storage drivers
 
-4. **Proxy API calls when using `npm run dev`**
+- Disk: set `STORAGE_DRIVER=disk` and `DISK_ROOT` to a writable directory (default `./storage`).
+- S3-compatible: set `STORAGE_DRIVER=s3` and the corresponding credentials/endpoint. Optionally set `PUBLIC_ASSET_BASE` to serve from a CDN.
 
-   Vite’s dev server expects `/api/inspire` to be served from the same origin. Add a temporary proxy block to `vite.config.ts` while developing:
+## Docker images
 
-   ```ts
-   export default defineConfig({
-     server: {
-       host: "::",
-       port: 8080,
-       proxy: {
-         "/api": {
-           target: "http://localhost:8081",
-           changeOrigin: true,
-         },
-       },
-     },
-     // …
-   });
-   ```
+Two Dockerfiles exist at the repo root:
 
-   Restart Vite after making the change.
+| File | Purpose |
+| ---- | ------- |
+| `Dockerfile` | Builds the Vite bundle (with configurable `VITE_FEATURE_*` build args) and serves it via `nginx:alpine`. |
+| `Dockerfile.api` | Packages the API/worker service on `node:22-slim`, installing libvips + build toolchain for `better-sqlite3` and exposes port 8080. |
+| `Dockerfile.inference` | Builds the “Inspire me” transformer service (Flan-T5 via `@xenova/transformers`) and exposes port 8080 for text generation. |
 
-5. **Start the web client**
-
-   ```bash
-   npm run dev
-   ```
-
-   The site will be available at `http://localhost:8080`. “Inspire me” will now hit the local transformer service and the UI badge will reflect whether the response came from AI (`🔥 AI dare`), the curated fallback (`🎲 Curated dare`), or the static preset deck (`📚 Classic dare`).
-
-6. **Optional sanity checks**
-
-   ```bash
-   npm run lint     # type-aware ESLint
-   npm run build    # creates dist/ for production
-   npm run preview  # serves dist/ on port 4173 by default
-   ```
-
-## Container images
-
-Two Dockerfiles live at repository root:
-
-- `Dockerfile` builds the Vite bundle in a Node 22 Alpine builder, then serves it with `nginx:alpine` using `nginx.conf` for single-page routing.
-- `Dockerfile.inference` installs the Node inference service on `node:22-slim`, adds `libgomp1` for ONNX runtime, and starts `server/index.js`. The container exposes port 8080 and persists the transformer cache at `/app/cache` (configurable via `TRANSFORMERS_CACHE`).
-
-Example build & push flow (mirrors the commands used in the repo):
+Example build + push:
 
 ```bash
-# Web UI
-docker build -t localhost:32000/what-are-the-odds-web:latest .
-docker push localhost:32000/what-are-the-odds-web:latest
+# Web (enable flags at build time as needed)
+docker build -t localhost:32000/what-are-the-odds:latest \
+  --build-arg VITE_FEATURE_LINK_DARES=1 \
+  --build-arg VITE_FEATURE_PROOFS=1 .
+docker push localhost:32000/what-are-the-odds:latest
 
-# Inference service
+# API
+docker build -f Dockerfile.api -t localhost:32000/what-are-the-odds-api:latest .
+docker push localhost:32000/what-are-the-odds-api:latest
+
+# Inspire-me inference service
 docker build -f Dockerfile.inference -t localhost:32000/what-are-the-odds-llm:latest .
 docker push localhost:32000/what-are-the-odds-llm:latest
 ```
 
-## Kubernetes deployment
+## Kubernetes
 
-All manifests live in `k8s.yaml` and are wrapped by `kustomization.yaml` so you can deploy with one command:
+`k8s.yaml` provisions three deployments:
+
+- `what-are-the-odds` – nginx serving the static web bundle (port 80).
+- `what-are-the-odds-api` – Node API/worker (port 8080) with `/healthz` probes.
+- `what-are-the-odds-llm` – transformer inference service powering “Inspire me” (port 8080).
+
+Services expose each deployment internally, and the ingress routes `/api/*` and `/p/*` to the API, `/api/inspire` to the LLM deployment, and all other traffic hitting the web deployment. The ConfigMap/Secret combo supplies feature flags and storage credentials. Adjust the default `emptyDir` volume for proofs to a persistent volume in production.
+
+Rollout commands:
 
 ```bash
-kubectl apply -k .
+kubectl apply -f k8s.yaml
+kubectl rollout restart deployment/what-are-the-odds
+kubectl rollout restart deployment/what-are-the-odds-api
+kubectl rollout restart deployment/what-are-the-odds-llm
 ```
 
-The manifest provisions:
+## Health & operations
 
-- `Deployment what-are-the-odds` – serves the web bundle on port 80 from `localhost:32000/what-are-the-odds-web:latest`.
-- `Deployment what-are-the-odds-llm` – runs the transformer API on port 8080 from `localhost:32000/what-are-the-odds-llm:latest` with a 1 Gi ephemeral cache.
-- `Service` objects for each deployment (ClusterIP on ports 80 and 8080).
-- An `Ingress` bound to class `public` with TLS handled by cert-manager using the `letsencrypt-prod` ClusterIssuer. TLS SANs cover:
-  - `whate-are-the-odds.com`
-  - `www.whate-are-the-odds.com`
+- `GET /healthz` – API liveness/readiness probe.
+- Proof worker: run `npm run process-proofs` (or schedule a CronJob) to process pending proofs.
+- Events table tracks dare + proof events for audit/stream replay.
 
-> **Prerequisites**
->
-> - cert-manager installed with a `ClusterIssuer/letsencrypt-prod` in the cluster.
-> - An ingress controller registered as class `public`.
-> - DNS A records for the domains above pointing at the ingress.
-> - A registry reachable as `localhost:32000` (e.g., the MicroK8s registry add-on).
-
-### Operational tips
-
-- **Deployments** – Scale the web or inference deployments independently with `kubectl scale deployment what-are-the-odds[-llm] --replicas=N`.
-- **Health checks** – The inference pod exposes `/healthz` used by readiness and liveness probes. The web pod is probed on `/`.
-- **Logs** – The transformer service logs a single structured line per request, e.g. `[inspire] source=llm` or `[inspire] source=curated`. Errors are emitted as `[inspire] source=error …` with the stack trace.
-- **Certificates** – Inspect progress with `kubectl describe certificate what-are-the-odds-com-tls -n <namespace>`.
-
-## Inspire API reference
+## Repo structure
 
 ```
-GET /api/inspire
+.
+├── Dockerfile           # Web bundle container
+├── Dockerfile.api       # API/worker container
+├── k8s.yaml             # Combined deployments, services, ingress
+├── nginx.conf           # SPA routing for nginx stage
+├── server/
+│   ├── migrations/      # SQLite migrations (incl. proofs)
+│   ├── src/
+│   │   ├── app.js       # Express app + routes
+│   │   ├── proofs.js    # Proof APIs + pages
+│   │   ├── storage.js   # Disk/S3 abstraction
+│   │   └── workers/     # Proof processing worker
+│   └── test/            # Vitest suites
+└── src/
+    ├── components/      # React components (dare modal, invite page, proof UI)
+    ├── utils/           # Shared helpers (hashing, cookies)
+    └── flags.ts         # Feature flag helpers for client
 ```
-
-Response:
-
-```json
-{
-  "suggestion": "Sit across the challenger's lap while describing…",
-  "source": "curated"  // "llm" when the transformer output is accepted
-}
-```
-
-Error responses include `{"error": "Failed to generate dare"}` with HTTP 500 and a corresponding log entry.
-
-The service enforces:
-
-- 8–24 word suggestions.
-- Mandatory mention of “target” or “challenger”.
-- Filters for violence, minors, animals, drugs, and template leakage.
-- Automatic punctuation and curated fallback prompts covering body shots, blindfolds, roleplay, and other party-friendly dares.
-
-## Project scripts (web)
-
-| Script | Description |
-| ------ | ----------- |
-| `npm run dev` | Start the Vite dev server (default port 8080). |
-| `npm run build` | Generate a production build in `dist/`. |
-| `npm run preview` | Serve `dist/` locally for a final smoke test. |
-| `npm run lint` | Run ESLint across the project. |
-
-The inference service has its own `npm start` script inside `server/package.json`.
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) if you plan to redistribute your own version of the experience.
+MIT. See [LICENSE](LICENSE) for redistribution details.

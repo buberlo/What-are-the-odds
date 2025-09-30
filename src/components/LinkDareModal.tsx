@@ -14,8 +14,7 @@ const toLocalInput = (date: Date) => {
 };
 
 const fromLocalInput = (value: string) => {
-  const local = new Date(value);
-  return new Date(local.getTime() + local.getTimezoneOffset() * 60000);
+  return new Date(value);
 };
 
 type CreatedDare = {
@@ -55,6 +54,7 @@ const LinkDareModal = ({ open, onClose }: { open: boolean; onClose: () => void }
       const csrf = getCookie("csrf-token");
       const response = await fetch("/api/dares", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           ...(csrf ? { "X-CSRF-Token": csrf } : {}),

@@ -120,6 +120,7 @@ const LinkDareInvitePage = ({ slug, token }: { slug: string; token: string }) =>
       const csrf = getCookie("csrf-token");
       const response = await fetch(`/api/dares/${dareId}/accept`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           "Idempotency-Key":

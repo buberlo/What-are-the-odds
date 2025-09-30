@@ -1,0 +1,207 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: what-are-the-odds
+  labels:
+    app: what-are-the-odds
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: what-are-the-odds
+  template:
+    metadata:
+      labels:
+        app: what-are-the-odds
+    spec:
+      containers:
+        - name: web
+          image: localhost:32000/what-are-the-odds:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: what-are-the-odds
+  labels:
+    app: what-are-the-odds
+spec:
+  type: ClusterIP
+  selector:
+    app: what-are-the-odds
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: what-are-the-odds-api
+  labels:
+    app: what-are-the-odds-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: what-are-the-odds-api
+  template:
+    metadata:
+      labels:
+        app: what-are-the-odds-api
+    spec:
+      containers:
+        - name: api
+          image: localhost:32000/what-are-the-odds-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: what-are-the-odds-api-config
+            - secretRef:
+                name: what-are-the-odds-api-secrets
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: proof-storage
+              mountPath: /data/proofs
+      volumes:
+        - name: proof-storage
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: what-are-the-odds-api
+  labels:
+    app: what-are-the-odds-api
+spec:
+  type: ClusterIP
+  selector:
+    app: what-are-the-odds-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: what-are-the-odds-api-config
+  labels:
+    app: what-are-the-odds-api
+data:
+  FEATURE_LINK_DARES: "1"
+  FEATURE_PROOFS: "1"
+  BASE_URL: "https://whate-are-the-odds.com"
+  STORAGE_DRIVER: "disk"
+  DISK_ROOT: "/data/proofs"
+  PROOF_MAX_IMAGE_BYTES: "10485760"
+  PROOF_WATERMARK: "1"
+  PUBLIC_ASSET_BASE: ""
+  PORT: "8080"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: what-are-the-odds-api-secrets
+  labels:
+    app: what-are-the-odds-api
+type: Opaque
+stringData:
+  INVITE_JWT_SECRET: ""
+  S3_ENDPOINT: ""
+  S3_REGION: "us-east-1"
+  S3_BUCKET: ""
+  S3_ACCESS_KEY: ""
+  S3_SECRET_KEY: ""
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: what-are-the-odds
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-dns
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/from-to-www-redirect: "true"
+spec:
+  ingressClassName: public
+  tls:
+    - hosts:
+        - whate-are-the-odds.com
+        - www.whate-are-the-odds.com
+      secretName: whate-are-the-odds-com-tls
+  rules:
+    - host: whate-are-the-odds.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: what-are-the-odds-api
+                port:
+                  number: 80
+          - path: /p/
+            pathType: Prefix
+            backend:
+              service:
+                name: what-are-the-odds-api
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: what-are-the-odds
+                port:
+                  number: 80
+    - host: www.whate-are-the-odds.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: what-are-the-odds-api
+                port:
+                  number: 80
+          - path: /p/
+            pathType: Prefix
+            backend:
+              service:
+                name: what-are-the-odds-api
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: what-are-the-odds
+                port:
+                  number: 80

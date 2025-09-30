@@ -12,6 +12,10 @@ const app = express();
 app.use(helmet());
 app.use(express.json({ limit: "1mb" }));
 
+app.get("/healthz", (req, res) => {
+  res.json({ ok: true });
+});
+
 runMigrations(db);
 
 const sseClients = new Map();
