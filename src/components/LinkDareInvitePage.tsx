@@ -101,7 +101,9 @@ const LinkDareInvitePage = ({ slug, token }: { slug: string; token: string }) =>
           matched: payload.matched,
         });
         setStatus("resolved");
-      } catch {}
+      } catch (_error) {
+        // Ignore malformed SSE payloads; heartbeat events can race with resolution
+      }
     });
     source.addEventListener("dare.expired", () => {
       setStatus("expired");
