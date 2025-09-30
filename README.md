@@ -20,6 +20,49 @@ A cinematic control room for running the high-stakes party game “What are the 
 | Dare generator API | `server/` (Node 22, Express, `@xenova/transformers`) | Loads the `Xenova/flan-t5-small` text-to-text model, validates the output, and falls back to a curated generator when the model misses the brief. Exposes `GET /api/inspire` and `/healthz`. |
 | Kubernetes deployment | `k8s.yaml` + `kustomization.yaml` | Deploys two Deployments (`what-are-the-odds` and `what-are-the-odds-llm`), paired Services, and a TLS-enabled Ingress handled by cert-manager. |
 
+## Feature flag: link-driven dares (Phase 1)
+
+Phase 1 of the link-driven dare flow ships behind the `FEATURE_LINK_DARES` flag and is disabled by default. Enable it in both the web client and API to surface the new endpoints and UI:
+
+```bash
+# Web UI
+VITE_FEATURE_LINK_DARES=1 npm run dev
+
+# API / inference service
+cd server
+FEATURE_LINK_DARES=1 npm start
+```
+
+The server stores link dares in SQLite (via `better-sqlite3`). Run migrations once per environment:
+
+```bash
+cd server
+FEATURE_LINK_DARES=1 npm run migrate
+```
+
+### API surface (flagged)
+
+| Endpoint | Method | Description |
+| -------- | ------ | ----------- |
+| `/api/dares` | `POST` | Create a new link dare with commit–reveal hash, expiry window validation, and a signed invite JWT. |
+| `/api/i/:slug` | `GET` | Fetch a redacted dare view when presenting an invite link (`t=<jwt>` query parameter required). |
+| `/api/dares/:id/accept` | `POST` | Single-use invite acceptance. Requires `Idempotency-Key`, CSRF headers, and the invite JWT. |
+| `/api/dares/:id/pick` | `POST` | Reveal the recipient’s number, verify the original commit hash, and resolve the dare. |
+| `/api/dares/:id/stream` | `GET` (SSE) | Live stream of `dare.created`, `dare.accepted`, `dare.resolved`, `dare.expired`, plus heartbeats. |
+
+### Client experience
+
+With the flag on, the HUD header exposes a “Create dare” modal that walks through title, description, range, expiry, and the committed number, then returns a copy-ready invite URL and QR code. Visiting `/i/<slug>?t=<token>` renders the invite landing view with the countdown, fairness badge, accept button, and live result banner that updates via SSE.
+
+### Testing
+
+Server-side unit, integration, and E2E coverage lives in `server/test/link-dares.test.js`. Run them with:
+
+```bash
+cd server
+npm test
+```
+
 The generator now returns structured responses of the form:
 
 ```json

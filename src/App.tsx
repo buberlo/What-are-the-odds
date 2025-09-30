@@ -7,6 +7,8 @@ import HowToPlayCard from "./components/HowToPlayCard";
 import PlayerRoster from "./components/PlayerRoster";
 import StatsPanel from "./components/StatsPanel";
 import { TranslationProvider, useTranslation, type Language } from "./i18n";
+import { FEATURE_LINK_DARES } from "./flags";
+import LinkDareModal from "./components/LinkDareModal";
 import {
   ActiveRound,
   DareConfig,
@@ -163,6 +165,7 @@ const AppContent = () => {
   const [roundsLaunched, setRoundsLaunched] = useState<number>(persistedState.roundsLaunched);
   const [activeStage, setActiveStage] = useState<ExperienceStage>("roster");
   const [insightOverlay, setInsightOverlay] = useState<"stats" | "guide" | null>(null);
+  const [linkDareOpen, setLinkDareOpen] = useState(false);
 
   const { t, language, setLanguage, languageLabel, languageOptions, availableLanguages } = useTranslation();
 
@@ -486,6 +489,15 @@ const AppContent = () => {
           </div>
           <div className="hud-header__actions">
             <div className="hud-header__buttons">
+              {FEATURE_LINK_DARES && (
+                <button
+                  type="button"
+                  className="hud-header__button"
+                  onClick={() => setLinkDareOpen(true)}
+                >
+                  Create dare
+                </button>
+              )}
               <button
                 type="button"
                 className="hud-header__button"
@@ -568,6 +580,9 @@ const AppContent = () => {
             </div>
           </div>
         </div>
+      )}
+      {FEATURE_LINK_DARES && (
+        <LinkDareModal open={linkDareOpen} onClose={() => setLinkDareOpen(false)} />
       )}
     </div>
   );
