@@ -5,6 +5,9 @@ import { SignJWT, jwtVerify } from "jose";
 import db from "./db.js";
 import { runMigrations } from "./migrations.js";
 import { BASE_URL, FEATURE_LINK_DARES, INVITE_JWT_SECRET } from "./config.js";
+import { registerProofRoutes } from "./proofs.js";
+import { registerLeaderboardRoutes } from "./leaderboardRoutes.js";
+import { registerShareRoutes } from "./shareRoutes.js";
 import { randomUUID } from "crypto";
 import { URL } from "url";
 
@@ -81,6 +84,10 @@ function rateLimit(key) {
   return bucket.count <= 30;
 }
 
+function getIp(req) {
+  return req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+}
+
 async function signInvite(payload, exp) {
   const epochSeconds = Math.floor(Date.parse(exp) / 1000);
   return await new SignJWT(payload)
@@ -145,6 +152,19 @@ function emitEvent(dareId, type, payload) {
     const data = `event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`;
     for (const res of listeners) res.write(data);
   }
+}
+
+function emitSystem(type, payload) {
+  const event = {
+    id: randomUUID(),
+    dare_id: null,
+    type,
+    payload: JSON.stringify(payload || {}),
+    at: new Date().toISOString(),
+  };
+  db
+    .prepare("INSERT INTO events (id, dare_id, type, payload, at) VALUES (@id, @dare_id, @type, @payload, @at)")
+    .run(event);
 }
 
 function checkExpiry(dare) {
@@ -291,7 +311,7 @@ app.post("/api/dares/:id/accept", requireFlag, async (req, res) => {
   if (Date.now() > Date.parse(invite.expires_at)) return res.status(410).json({ error: "Invite expired" });
   const consumed = db.prepare("SELECT 1 FROM invite_jti WHERE jti = ?").get(payload.jti);
   if (consumed) return res.status(403).json({ error: "Invite already used" });
-  const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+  const ip = getIp(req);
   if (!rateLimit(`${ip}:accept`)) return res.status(429).json({ error: "Rate limited" });
   const id = randomUUID();
   let broadcast = false;
@@ -336,7 +356,7 @@ app.post("/api/dares/:id/pick", requireFlag, (req, res) => {
   const pick = Number(value);
   const dare = db.prepare("SELECT * FROM dares WHERE id = ?").get(req.params.id);
   if (!dare) return res.status(404).json({ error: "Not found" });
-  const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+  const ip = getIp(req);
   if (!rateLimit(`${ip}:pick`)) return res.status(429).json({ error: "Rate limited" });
   const updated = checkExpiry(dare);
   if (updated.status === "expired") return res.status(410).json({ error: "Expired" });
@@ -382,9 +402,26 @@ app.get("/api/dares/:id/stream", requireFlag, (req, res) => {
   req.on("close", () => clearInterval(heartbeat));
 });
 
+registerProofRoutes(app, {
+  getIp,
+  rateLimit,
+  emit: (dareId, type, payload) => emitEvent(dareId, type, payload),
+});
+
+registerLeaderboardRoutes(app, {
+  getIp,
+  rateLimit,
+  emit: (type, payload) => emitSystem(type, payload),
+});
+
+registerShareRoutes(app, {
+  getIp,
+  rateLimit,
+});
+
 app.use((req, res) => {
   res.status(404).json({ error: "Not found" });
 });
 
 export default app;
-export { computeCommitHash, signInvite, verifyInvite };
+export { computeCommitHash, signInvite, verifyInvite, emitSystem };

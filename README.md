@@ -8,6 +8,7 @@ High-stakes party dares with commit–reveal fairness, live invite flows, and ph
 | ------- | ---- | ------- | ----- |
 | Link-driven dares (Phase 1) | `FEATURE_LINK_DARES` / `VITE_FEATURE_LINK_DARES` | off | Invite creation, JWT-secured landing page, commit–reveal resolution, SSE updates. |
 | Proof pipeline (Phase 2) | `FEATURE_PROOFS` / `VITE_FEATURE_PROOFS` | off | Direct-to-storage uploads, sharp processing, thumbnails, publish controls, public proof pages. |
+| Leaderboards & sharing (Phase 3) | `FEATURE_LEADERBOARDS` / `VITE_FEATURE_LEADERBOARDS`, `FEATURE_SHARING` / `VITE_FEATURE_SHARING` | off | Snapshot worker, leaderboard API/UI, shareable result/proof pages with OG meta. |
 
 Enable the matching client and server flags when developing a feature set.
 
@@ -37,10 +38,15 @@ A starter `.env.example` is provided:
 ```
 VITE_FEATURE_LINK_DARES=0
 VITE_FEATURE_PROOFS=0
+VITE_FEATURE_LEADERBOARDS=0
+VITE_FEATURE_SHARING=0
 FEATURE_LINK_DARES=0
 FEATURE_PROOFS=0
+FEATURE_LEADERBOARDS=0
+FEATURE_SHARING=0
 BASE_URL=http://localhost:3000
 INVITE_JWT_SECRET=dev-secret
+ADMIN_API_TOKEN=
 STORAGE_DRIVER=disk
 DISK_ROOT=./storage
 PUBLIC_ASSET_BASE=
@@ -51,6 +57,10 @@ S3_REGION=us-east-1
 S3_BUCKET=
 S3_ACCESS_KEY=
 S3_SECRET_KEY=
+LEADERBOARD_TOP_N=100
+LEADERBOARD_RETENTION_DAILY=60
+LEADERBOARD_RETENTION_WEEKLY=26
+SHARE_BASE_URL=http://localhost:3000
 ```
 
 Copy this file to `.env` (client root) and `.env` inside `server/` as needed, then toggle the flags you require.
@@ -197,6 +207,26 @@ kubectl rollout restart deployment/what-are-the-odds-llm
 - `GET /healthz` – API liveness/readiness probe.
 - Proof worker: run `npm run process-proofs` (or schedule a CronJob) to process pending proofs.
 - Events table tracks dare + proof events for audit/stream replay.
+
+## Verification checklist
+
+1. With all Phase 3 flags off, `/leaderboard` and `/s/*` should 404 (server and client).
+2. Enable `FEATURE_LEADERBOARDS`/`VITE_FEATURE_LEADERBOARDS`, run the worker, then hit `/leaderboard` – table renders once snapshots exist.
+3. Call `POST /api/admin/leaderboard/rebuild` with `X-Admin-Token` to rebuild on demand; inspect `Cache-Control` headers on the public GET.
+4. Toggle “with proofs only” in the UI and confirm rows lacking approved proofs disappear while thumbnails remain clickable.
+5. Enable `FEATURE_SHARING`/`VITE_FEATURE_SHARING`; share routes `/s/r/:dareId` and `/s/p/:proofId` should render OG meta plus share controls (verify via `curl` for meta tags).
+6. Attempt to share private dares/proofs – responses should return 404, while unlisted stays accessible via direct link and public remains indexable.
+7. Monitor the API logs for `leaderboard.updated` events to confirm snapshot identifiers are captured after worker runs.
+
+## Phase 3: Leaderboards & sharing
+
+With leaderboards and sharing enabled:
+
+- **Snapshot worker** – Generates daily (00:05 UTC), weekly (Monday 00:10 UTC), and all-time (hourly on change) snapshots, retaining 60/26/1 windows respectively. Each job emits a `leaderboard.updated` event and enforces versioned idempotency.
+- **Leaderboard API** – `GET /api/leaderboard` serves cached snapshots with optional `period`, `category`, `withProofs`, and `limit` filters (public cache headers). `POST /api/admin/leaderboard/rebuild` allows admin-triggered rebuilds when `X-Admin-Token` matches `ADMIN_API_TOKEN`.
+- **Client UI** – `/leaderboard` presents daily/weekly/all-time tabs, category filter, and a “with proofs only” toggle that surfaces proof thumbnails linking to `/p/:slug`.
+- **Share endpoints** – `GET /api/share/result/:dareId` and `GET /api/share/proof/:proofId` return OG/Twitter payloads with visibility checks. SSR routes `/s/r/:dareId` and `/s/p/:proofId` expose public tiles with Web Share / copy fallbacks (Cache-Control: `public, max-age=60, stale-while-revalidate=600`).
+- **Feature gating** – Set both client and server flags (`FEATURE_LEADERBOARDS`, `FEATURE_SHARING`, `VITE_FEATURE_*`) alongside Phase 1/2 flags to activate the flow.
 
 ## Repo structure
 

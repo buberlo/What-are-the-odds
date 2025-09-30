@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Player } from "../types";
 import { useTranslation } from "../i18n";
+import { FEATURE_LEADERBOARDS } from "../flags";
 
 interface StatsPanelProps {
   players: Player[];
@@ -190,6 +191,11 @@ const StatsPanel = ({ players, roundsPlayed }: StatsPanelProps) => {
           <p className="trophy-room__empty">{t("stats.leaderboard.empty")}</p>
         )}
       </div>
+      {FEATURE_LEADERBOARDS && (
+        <div className="trophy-room__cta">
+          <a href="/leaderboard">Explore global leaderboards</a>
+        </div>
+      )}
     </section>
   );
 };
