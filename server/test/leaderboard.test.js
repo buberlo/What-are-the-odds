@@ -19,7 +19,12 @@ beforeAll(async () => {
   process.env.FEATURE_PROOFS = "true";
   process.env.FEATURE_LEADERBOARDS = "true";
   process.env.FEATURE_SHARING = "true";
+  process.env.FEATURE_VIDEO_PROOFS = "true";
+  process.env.FEATURE_PROOF_MODERATION = "true";
+  process.env.FEATURE_PROOF_BLUR = "true";
   process.env.ADMIN_API_TOKEN = "admin-secret";
+  process.env.BASE_URL = "http://localhost:3000";
+  process.env.SHARE_BASE_URL = "http://localhost:3000";
   ({ default: app } = await import("../src/app.js"));
   ({ default: db } = await import("../src/db.js"));
   ({ computeLeaderboardEntries, saveSnapshot, findSnapshotByWindow } = await import("../src/leaderboard.js"));
@@ -41,7 +46,7 @@ const createResolvedDare = ({
   category = null,
   userId = "user-1",
   matched = false,
-  acceptedAt = "2024-01-01T00:00:00.000Z",
+  acceptedAt,
   resolvedAt = "2024-01-01T00:05:00.000Z",
   range = 10,
   visibility = "public",
@@ -50,6 +55,9 @@ const createResolvedDare = ({
   withProof = false,
 }) => {
   const now = new Date().toISOString();
+  const resolvedIso = resolvedAt;
+  const acceptedIso =
+    acceptedAt || new Date(Date.parse(resolvedIso || Date.now()) - 5 * 60 * 1000).toISOString();
   db.prepare(
     `INSERT INTO dares (id, title, description, category, range_n, expiry_ts, visibility, status, commit_hash, commit_salt, committed_number, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, 'resolved', ?, ?, ?, ?, ?)`
@@ -71,7 +79,7 @@ const createResolvedDare = ({
   db.prepare(
     `INSERT INTO acceptances (id, dare_id, accepter_id, accepted_at, ip, user_agent)
      VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(crypto.randomUUID(), dareId, userId, acceptedAt, "127.0.0.1", "vitest");
+  ).run(crypto.randomUUID(), dareId, userId, acceptedIso, "127.0.0.1", "vitest");
 
   db.prepare(
     `INSERT INTO events (id, dare_id, type, payload, at)
@@ -214,12 +222,12 @@ describe("leaderboard API", () => {
   it("requires admin token for rebuild", async () => {
     createResolvedDare({ matched: false });
     const request = supertest(app);
-    const forbidden = await request.post("/api/admin/leaderboard/rebuild").send({ period: "daily" });
-    expect(forbidden.status).toBe(403);
-    const ok = await request
-      .post("/api/admin/leaderboard/rebuild")
-      .set("X-Admin-Token", "admin-secret")
-      .send({ period: "daily", withProofs: false });
+  const forbidden = await request.post("/api/admin/leaderboard/rebuild").send({ period: "daily" });
+  expect(forbidden.status).toBe(403);
+  const ok = await request
+    .post("/api/admin/leaderboard/rebuild")
+    .set({ "Cookie": baseCookies, "X-CSRF-Token": csrfToken, "X-Admin-Token": "admin-secret" })
+    .send({ period: "daily", withProofs: false });
     expect(ok.status).toBe(200);
     expect(Array.isArray(ok.body.entries)).toBe(true);
   });

@@ -38,6 +38,10 @@ const mimeFromExtension = (key) => {
   if (key.endsWith(".heic")) return "image/heic";
   if (key.endsWith(".heif")) return "image/heif";
   if (key.endsWith(".avif")) return "image/avif";
+  if (key.endsWith(".gif")) return "image/gif";
+  if (key.endsWith(".mp4")) return "video/mp4";
+  if (key.endsWith(".webm")) return "video/webm";
+  if (key.endsWith(".mov")) return "video/quicktime";
   return "application/octet-stream";
 };
 

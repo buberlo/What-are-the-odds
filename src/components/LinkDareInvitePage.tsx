@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCookie } from "../utils/cookies";
+import { connectRealtime } from "../realtime";
 
 type DareView = {
   dare: {
@@ -87,30 +88,39 @@ const LinkDareInvitePage = ({ slug, token }: { slug: string; token: string }) =>
 
   useEffect(() => {
     if (!dareId) return;
-    const source = new EventSource(`/api/dares/${dareId}/stream`);
-    source.addEventListener("dare.accepted", () => {
-      setStatus("accepted");
-      setAccepted(true);
+    const disconnect = connectRealtime({
+      dareId,
+      onEvent: ({ type, payload }) => {
+        if (type === "dare.accepted") {
+          setStatus("accepted");
+          setAccepted(true);
+          return;
+        }
+        if (type === "dare.resolved") {
+          if (payload && typeof payload === "object") {
+            const data = payload as DareResult;
+            if (
+              typeof data.committedNumber === "number" &&
+              typeof data.revealedNumber === "number" &&
+              typeof data.matched === "boolean"
+            ) {
+              setResult({
+                committedNumber: data.committedNumber,
+                revealedNumber: data.revealedNumber,
+                matched: data.matched,
+              });
+              setStatus("resolved");
+            }
+          }
+          return;
+        }
+        if (type === "dare.expired") {
+          setStatus("expired");
+        }
+      },
     });
-    source.addEventListener("dare.resolved", (event) => {
-      try {
-        const payload = JSON.parse((event as MessageEvent<string>).data) as DareResult & { id: string };
-        setResult({
-          committedNumber: payload.committedNumber,
-          revealedNumber: payload.revealedNumber,
-          matched: payload.matched,
-        });
-        setStatus("resolved");
-      } catch (_error) {
-        // Ignore malformed SSE payloads; heartbeat events can race with resolution
-      }
-    });
-    source.addEventListener("dare.expired", () => {
-      setStatus("expired");
-    });
-    source.addEventListener("heartbeat", () => {});
     return () => {
-      source.close();
+      disconnect();
     };
   }, [dareId]);
 
@@ -207,7 +217,9 @@ const LinkDareInvitePage = ({ slug, token }: { slug: string; token: string }) =>
                 Host pick <strong>{result.committedNumber}</strong> vs your pick <strong>{result.revealedNumber}</strong>
               </p>
               <p>{result.matched ? "Numbers matched" : "No match"}</p>
-              {result.matched && <div className="link-dare__banner">Proof required – stay tuned for Phase 2</div>}
+              {result.matched && (
+                <div className="link-dare__banner">Proof required – upload a photo or video to finish the dare</div>
+              )}
             </div>
           )}
         </div>

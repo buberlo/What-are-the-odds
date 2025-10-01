@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { SharePayload } from "../types";
+import { ProofRecord, SharePayload } from "../types";
 
 type ShareResource = "result" | "proof";
 
@@ -28,6 +28,8 @@ const SharePage = ({ resource, id, initialData }: SharePageProps) => {
   const [status, setStatus] = useState<ShareStatus>(initialData ? "loaded" : "idle");
   const [error, setError] = useState<string | null>(null);
   const [shareFeedback, setShareFeedback] = useState<"idle" | "shared" | "copied">("idle");
+  const [proofDetail, setProofDetail] = useState<ProofRecord | null>(null);
+  const [proofDetailLoaded, setProofDetailLoaded] = useState(false);
 
   const captionBlock = useMemo(() => {
     if (!data) return "";
@@ -63,6 +65,31 @@ const SharePage = ({ resource, id, initialData }: SharePageProps) => {
       document.title = data.title;
     }
   }, [data, fetchShareData]);
+
+  useEffect(() => {
+    if (!data || resource !== "proof" || proofDetailLoaded) return;
+    const proofId = data.proofId || id;
+    let cancelled = false;
+    const loadProof = async () => {
+      try {
+        const response = await fetch(`/api/proofs/${encodeURIComponent(proofId)}`);
+        if (!response.ok) {
+          throw new Error("Not available");
+        }
+        const payload: ProofRecord = await response.json();
+        if (cancelled) return;
+        setProofDetail(payload);
+      } catch {
+        if (cancelled) return;
+      } finally {
+        if (!cancelled) setProofDetailLoaded(true);
+      }
+    };
+    loadProof();
+    return () => {
+      cancelled = true;
+    };
+  }, [data, resource, proofDetailLoaded, id]);
 
   const shareAction = useCallback(async () => {
     if (!data) return;
@@ -142,7 +169,14 @@ const SharePage = ({ resource, id, initialData }: SharePageProps) => {
         </header>
 
         <div className="share-page__media">
-          <img src={data.image} alt="Share preview" />
+          {resource === "proof" && proofDetail?.type === "video" && (proofDetail.assets.mp4 || proofDetail.assets.webm) ? (
+            <video controls playsInline muted poster={data.image}>
+              {proofDetail.assets.mp4?.url && <source src={proofDetail.assets.mp4.url} type="video/mp4" />}
+              {proofDetail.assets.webm?.url && <source src={proofDetail.assets.webm.url} type="video/webm" />}
+            </video>
+          ) : (
+            <img src={data.image} alt="Share preview" />
+          )}
         </div>
 
         <dl className="share-page__meta">

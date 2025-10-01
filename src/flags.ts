@@ -20,3 +20,9 @@ export const FEATURE_LEADERBOARDS = parseFlag(
   false,
 );
 export const FEATURE_SHARING = parseFlag(import.meta.env.VITE_FEATURE_SHARING, false);
+export const FEATURE_VIDEO_PROOFS = parseFlag(import.meta.env.VITE_FEATURE_VIDEO_PROOFS, false);
+export const FEATURE_PROOF_MODERATION = parseFlag(import.meta.env.VITE_FEATURE_PROOF_MODERATION, false);
+export const FEATURE_PROOF_BLUR = parseFlag(import.meta.env.VITE_FEATURE_PROOF_BLUR, false);
+export const FEATURE_REALTIME_WS = parseFlag(import.meta.env.VITE_FEATURE_REALTIME_WS, false);
+export const FEATURE_SECURITY_HARDENING = parseFlag(import.meta.env.VITE_FEATURE_SECURITY_HARDENING, false);
+export const FEATURE_PERF_TELEM = parseFlag(import.meta.env.VITE_FEATURE_PERF_TELEM, false);

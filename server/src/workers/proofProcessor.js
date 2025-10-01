@@ -1,8 +1,10 @@
+import { promises as fs } from "fs";
 import sharp from "sharp";
 import crypto from "crypto";
 import db from "../db.js";
 import { runMigrations } from "../migrations.js";
 import {
+  FEATURE_PROOF_MODERATION,
   PROOF_WATERMARK,
 } from "../config.js";
 import {
@@ -10,25 +12,58 @@ import {
   openReadStream,
   statObject,
 } from "../storage.js";
+import { createWorkspace } from "../media/workspace.js";
+import { generatePhotoVariants } from "../media/image.js";
+import { buildVideoDerivatives } from "../media/video.js";
+import { evaluateModeration } from "../moderation.js";
+import { publishBus } from "../realtime/bus.js";
 
 const pendingStmt = db.prepare(
   `SELECT * FROM proofs
-   WHERE moderation = 'pending'
-     AND NOT EXISTS (
-       SELECT 1 FROM proof_assets a WHERE a.proof_id = proofs.id AND a.kind = 'jpeg'
-     )`
+   WHERE NOT EXISTS (
+     SELECT 1 FROM proof_assets a WHERE a.proof_id = proofs.id AND a.kind = 'poster'
+   )
+   ORDER BY created_at ASC`
 );
 
-const assetsStmt = db.prepare("SELECT * FROM proof_assets WHERE proof_id = ?");
-const insertAsset = db.prepare(
-  `INSERT INTO proof_assets (id, proof_id, kind, storage_key, mime, size_bytes, sha256)
-   VALUES (?, ?, ?, ?, ?, ?, ?)`
+const originalAssetStmt = db.prepare(
+  "SELECT * FROM proof_assets WHERE proof_id = ? AND kind = 'original'"
 );
-const updateProof = db.prepare(
-  `UPDATE proofs SET width = ?, height = ?, moderation = 'approved', updated_at = datetime('now') WHERE id = ?`
+
+const deleteAssetKind = db.prepare(
+  "DELETE FROM proof_assets WHERE proof_id = ? AND kind = ?"
 );
+
+const insertAssetStmt = db.prepare(
+  `INSERT INTO proof_assets (id, proof_id, kind, storage_key, mime, size_bytes, sha256, metadata)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+);
+
+const updateProofStmt = db.prepare(
+  `UPDATE proofs
+   SET width = @width,
+       height = @height,
+       duration_ms = @duration_ms,
+       moderation = @moderation,
+       visibility = CASE WHEN @setPrivate = 1 THEN 'private' ELSE visibility END,
+       updated_at = datetime('now')
+   WHERE id = @id`
+);
+
 const insertEvent = db.prepare(
   `INSERT INTO events (id, dare_id, type, payload, at) VALUES (?, ?, ?, ?, ?)`
+);
+
+const upsertPendingReview = db.prepare(
+  `INSERT INTO moderation_reviews (id, proof_id, status, reason, created_at, reviewed_at, reviewer_id)
+   VALUES (?, ?, 'pending', ?, ?, NULL, NULL)
+   ON CONFLICT(proof_id) DO UPDATE SET status = 'pending', reason = excluded.reason, reviewed_at = NULL`
+);
+
+const upsertResolvedReview = db.prepare(
+  `INSERT INTO moderation_reviews (id, proof_id, status, reason, created_at, reviewed_at, reviewer_id)
+   VALUES (?, ?, ?, ?, ?, ?, NULL)
+   ON CONFLICT(proof_id) DO UPDATE SET status = excluded.status, reason = excluded.reason, reviewed_at = excluded.reviewed_at`
 );
 
 const dareStmt = db.prepare(
@@ -45,106 +80,174 @@ const bufferFromStream = async (stream) => {
 
 const hashBuffer = (buffer) => crypto.createHash("sha256").update(buffer).digest();
 
-const targetKeys = (storageKey) => {
+const derivePaths = (storageKey) => {
   const parts = storageKey.split("/");
-  const originalIndex = parts.lastIndexOf("original");
+  const originalIndex = parts.indexOf("original");
   const baseParts = originalIndex === -1 ? parts.slice(0, -1) : parts.slice(0, originalIndex);
-  const filename = parts[parts.length - 1];
-  const stem = filename.split(".")[0];
-  const base = `${baseParts.join("/")}/public/img/${stem}`;
-  return {
-    jpeg: `${base}-1920.jpg`,
-    thumb1280: `${base}-1280.jpg`,
-    thumb640: `${base}-640.jpg`,
-    thumb320: `${base}-320.jpg`,
-    poster: `${base}-poster.jpg`,
-  };
+  const filename = parts[parts.length - 1] || "";
+  const stem = filename.includes(".") ? filename.slice(0, filename.lastIndexOf(".")) : filename;
+  const root = baseParts.join("/");
+  return { root, stem };
 };
 
-const watermarkOverlay = (width, height, slug, createdAt) => {
-  const ts = new Date(createdAt).toISOString();
-  const label = `${slug || "unknown"} · ${ts}`;
-  const fontSize = Math.max(Math.floor(Math.min(width, height) * 0.035), 18);
-  const padding = Math.max(Math.floor(fontSize * 0.8), 16);
-  const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="rgba(0,0,0,0.5)" />
-      </filter>
-    </defs>
-    <rect x="${width - (label.length * fontSize * 0.6) - padding * 2}" y="${height - fontSize - padding}" rx="${Math.floor(padding / 2)}" ry="${Math.floor(padding / 2)}" width="${label.length * fontSize * 0.6 + padding * 2}" height="${fontSize + padding}" fill="rgba(15,23,42,0.55)"/>
-    <text x="${width - padding}" y="${height - Math.floor(padding / 2)}" font-size="${fontSize}" font-family="'Inter', 'Segoe UI', sans-serif" text-anchor="end" fill="#f8fafc" filter="url(#shadow)">${label}</text>
-  </svg>`;
-  return Buffer.from(svg);
+const recordAsset = (proofId, kind, key, mime, buffer, metadata) => {
+  deleteAssetKind.run(proofId, kind);
+  insertAssetStmt.run(
+    crypto.randomUUID(),
+    proofId,
+    kind,
+    key,
+    mime,
+    buffer.length,
+    hashBuffer(buffer),
+    metadata ? JSON.stringify(metadata) : null,
+  );
+};
+
+const processPhoto = async (proof, originalAsset) => {
+  const stat = await statObject(originalAsset.storage_key);
+  if (!stat.exists) return;
+  const sourceBuffer = await bufferFromStream(await openReadStream(originalAsset.storage_key));
+  const dare = proof.watermark && PROOF_WATERMARK ? dareStmt.get(proof.dare_id) : null;
+  const { variants, width, height } = await generatePhotoVariants({
+    buffer: sourceBuffer,
+    watermark: Boolean(proof.watermark && PROOF_WATERMARK),
+    slug: dare?.invite_slug,
+    createdAt: proof.created_at,
+  });
+  const { root, stem } = derivePaths(proof.storage_key);
+  const base = `${root}/public/img/${stem}`;
+  const entries = [
+    ["jpeg", `${base}-1920.jpg`],
+    ["thumb1280", `${base}-1280.jpg`],
+    ["thumb640", `${base}-640.jpg`],
+    ["thumb320", `${base}-320.jpg`],
+    ["poster", `${base}-poster.jpg`],
+  ];
+  for (const [kind, key] of entries) {
+    const blob = variants.get(kind);
+    if (!blob) continue;
+    await writeBuffer(key, blob, "image/jpeg");
+    recordAsset(proof.id, kind, key, "image/jpeg", blob, null);
+  }
+  return { width, height, duration: null };
+};
+
+const processVideo = async (proof, originalAsset) => {
+  const stat = await statObject(originalAsset.storage_key);
+  if (!stat.exists) return;
+  const workspace = await createWorkspace();
+  try {
+    const inputExt = originalAsset.storage_key.includes(".")
+      ? originalAsset.storage_key.slice(originalAsset.storage_key.lastIndexOf("."))
+      : ".mp4";
+    const inputPath = await workspace.pull(originalAsset.storage_key, `source${inputExt}`);
+    const dare = proof.watermark && PROOF_WATERMARK ? dareStmt.get(proof.dare_id) : null;
+    const derivatives = await buildVideoDerivatives({
+      workspace,
+      inputPath,
+      slug: dare?.invite_slug || proof.slug,
+      createdAt: proof.created_at,
+      durationMs: proof.duration_ms,
+    });
+    const { root, stem } = derivePaths(proof.storage_key);
+    const videoBase = `${root}/public/vid/${stem}`;
+    const gifPath = `${root}/public/gif/${stem}.gif`;
+    const posterKey = `${videoBase}-poster.jpg`;
+    const mp4Buffer = await fs.readFile(derivatives.mp4Path);
+    await writeBuffer(`${videoBase}.mp4`, mp4Buffer, "video/mp4");
+    recordAsset(proof.id, "mp4", `${videoBase}.mp4`, "video/mp4", mp4Buffer, null);
+    const webmBuffer = await fs.readFile(derivatives.webmPath);
+    await writeBuffer(`${videoBase}.webm`, webmBuffer, "video/webm");
+    recordAsset(proof.id, "webm", `${videoBase}.webm`, "video/webm", webmBuffer, null);
+    await writeBuffer(posterKey, derivatives.posterBuffer, "image/jpeg");
+    recordAsset(proof.id, "poster", posterKey, "image/jpeg", derivatives.posterBuffer, null);
+    if (derivatives.gifBuffer) {
+      await writeBuffer(gifPath, derivatives.gifBuffer, "image/gif");
+      recordAsset(proof.id, "gif", gifPath, "image/gif", derivatives.gifBuffer, null);
+    } else {
+      deleteAssetKind.run(proof.id, "gif");
+    }
+    await fs.rm(derivatives.mp4Path, { force: true });
+    await fs.rm(derivatives.webmPath, { force: true });
+    return { width: derivatives.width, height: derivatives.height, duration: proof.duration_ms };
+  } finally {
+    await workspace.cleanup();
+  }
+};
+
+const evaluateProofModeration = (proof, width, height, duration) => {
+  const sha = Buffer.isBuffer(proof.sha256)
+    ? proof.sha256.toString("hex")
+    : Buffer.from(proof.sha256).toString("hex");
+  const decision = evaluateModeration({
+    sha256Hex: sha,
+    mime: proof.type === "video" ? "video/mp4" : "image/jpeg",
+    width,
+    height,
+    durationMs: duration,
+    storageKey: proof.storage_key,
+  });
+  if (!FEATURE_PROOF_MODERATION) return { moderation: "approved", review: null };
+  return { moderation: decision.decision, review: decision.reason || null };
 };
 
 const processProof = async (proof) => {
-  const originalAsset = assetsStmt.all(proof.id).find((asset) => asset.kind === "original");
+  const originalAsset = originalAssetStmt.get(proof.id);
   if (!originalAsset) return;
   const stat = await statObject(originalAsset.storage_key);
   if (!stat.exists) return;
-  const stream = await openReadStream(originalAsset.storage_key);
-  const buffer = await bufferFromStream(stream);
-  const image = sharp(buffer, { limitInputPixels: false });
-  const base = await image
-    .rotate()
-    .resize({ width: 1920, height: 1920, fit: "inside", withoutEnlargement: true })
-    .jpeg({ quality: 85 })
-    .toBuffer();
-  const metaBase = await sharp(base).metadata();
-  let compositeSource = base;
-  if (proof.watermark && PROOF_WATERMARK) {
-    const dare = dareStmt.get(proof.dare_id);
-    const overlay = watermarkOverlay(metaBase.width || 1920, metaBase.height || 1080, dare?.invite_slug, proof.created_at);
-    compositeSource = await sharp(base)
-      .composite([{ input: overlay, gravity: "southeast" }])
-      .jpeg({ quality: 85 })
-      .toBuffer();
+  let result;
+  if (proof.type === "video") {
+    result = await processVideo(proof, originalAsset);
+  } else {
+    result = await processPhoto(proof, originalAsset);
   }
-  const meta = await sharp(compositeSource).metadata();
-  const makeSized = async (width) =>
-    await sharp(compositeSource)
-      .resize({ width, height: width, fit: "inside", withoutEnlargement: true })
-      .jpeg({ quality: 80 })
-      .toBuffer();
-  const posterBuffer = await makeSized(640);
-  const buffers = new Map([
-    ["jpeg", compositeSource],
-    ["thumb1280", await makeSized(1280)],
-    ["thumb640", posterBuffer],
-    ["thumb320", await makeSized(320)],
-    ["poster", posterBuffer],
-  ]);
-  const keys = targetKeys(proof.storage_key);
-  const writes = [];
-  for (const [kind, blob] of buffers.entries()) {
-    const key = keys[kind];
-    await writeBuffer(key, blob, "image/jpeg");
-    writes.push({ kind, key, blob });
-  }
+  if (!result) return;
+  const { width, height, duration } = result;
+  const moderationOutcome = evaluateProofModeration(proof, width, height, duration);
+  const setPrivate = moderationOutcome.moderation === "rejected" ? 1 : 0;
+  const nowIso = new Date().toISOString();
   db.exec("BEGIN");
   try {
-    for (const { kind, key, blob } of writes) {
-      insertAsset.run(crypto.randomUUID(), proof.id, kind, key, "image/jpeg", blob.length, hashBuffer(blob));
+    updateProofStmt.run({
+      id: proof.id,
+      width: width ?? null,
+      height: height ?? null,
+      duration_ms: duration ?? null,
+      moderation: moderationOutcome.moderation,
+      setPrivate,
+    });
+    insertEvent.run(crypto.randomUUID(), proof.dare_id, "proof.processed", JSON.stringify({ id: proof.id }), nowIso);
+    publishBus("proof.processed", { dareId: proof.dare_id, payload: { id: proof.id }, at: nowIso });
+    if (moderationOutcome.moderation === "pending") {
+      upsertPendingReview.run(crypto.randomUUID(), proof.id, moderationOutcome.review, nowIso);
+      insertEvent.run(crypto.randomUUID(), proof.dare_id, "proof.moderation_pending", JSON.stringify({ id: proof.id }), nowIso);
+      publishBus("proof.moderation_pending", { dareId: proof.dare_id, payload: { id: proof.id }, at: nowIso });
+    } else if (moderationOutcome.moderation === "approved") {
+      upsertResolvedReview.run(crypto.randomUUID(), proof.id, "approved", moderationOutcome.review, nowIso, nowIso);
+      insertEvent.run(crypto.randomUUID(), proof.dare_id, "proof.approved", JSON.stringify({ id: proof.id }), nowIso);
+      publishBus("proof.approved", { dareId: proof.dare_id, payload: { id: proof.id }, at: nowIso });
+    } else if (moderationOutcome.moderation === "rejected") {
+      upsertResolvedReview.run(crypto.randomUUID(), proof.id, "rejected", moderationOutcome.review, nowIso, nowIso);
+      insertEvent.run(crypto.randomUUID(), proof.dare_id, "proof.rejected", JSON.stringify({ id: proof.id }), nowIso);
+      publishBus("proof.rejected", { dareId: proof.dare_id, payload: { id: proof.id }, at: nowIso });
     }
-    updateProof.run(meta.width || null, meta.height || null, proof.id);
-    insertEvent.run(crypto.randomUUID(), proof.dare_id, "proof.processed", JSON.stringify({ id: proof.id }), new Date().toISOString());
     db.exec("COMMIT");
   } catch (err) {
     db.exec("ROLLBACK");
-    console.error("proof processing failed", proof.id, err);
     throw err;
   }
 };
 
 export const processPendingProofs = async () => {
   runMigrations(db);
-  const queue = pendingStmt.all();
-  for (const proof of queue) {
+  const proofs = pendingStmt.all();
+  for (const proof of proofs) {
     try {
       await processProof(proof);
     } catch (err) {
-      // continue
+      console.error("proof processor error", proof.id, err);
     }
   }
 };

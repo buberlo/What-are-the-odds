@@ -2,11 +2,18 @@ import { Router, raw } from "express";
 import crypto, { randomUUID } from "crypto";
 import { customAlphabet } from "nanoid";
 import db from "./db.js";
+import { runMigrations } from "./migrations.js";
 import {
   FEATURE_PROOFS,
+  FEATURE_VIDEO_PROOFS,
+  FEATURE_PROOF_MODERATION,
+  FEATURE_PROOF_BLUR,
   PROOF_MAX_IMAGE_BYTES,
+  PROOF_MAX_VIDEO_BYTES,
   PROOF_WATERMARK,
   PUBLIC_ASSET_BASE,
+  ADMIN_API_TOKEN,
+  CDN_PUBLIC_BASE,
 } from "./config.js";
 import storage, {
   STORAGE_IS_DIRECT,
@@ -18,8 +25,13 @@ import storage, {
   statObject,
   writeBuffer,
 } from "./storage.js";
+import { createWorkspace } from "./media/workspace.js";
+import { probeVideo } from "./media/video.js";
+import { applyBlurMasks } from "./media/image.js";
 
-const ALLOWED_MIME = new Set([
+runMigrations(db);
+
+const PHOTO_MIME = new Set([
   "image/jpeg",
   "image/png",
   "image/heic",
@@ -27,7 +39,7 @@ const ALLOWED_MIME = new Set([
   "image/webp",
 ]);
 
-const EXTENSIONS = {
+const PHOTO_EXTENSIONS = {
   "image/jpeg": ".jpg",
   "image/png": ".png",
   "image/heic": ".heic",
@@ -35,7 +47,33 @@ const EXTENSIONS = {
   "image/webp": ".webp",
 };
 
+const VIDEO_MIME = new Set(["video/mp4", "video/webm", "video/quicktime"]);
+
+const VIDEO_EXTENSIONS = {
+  "video/mp4": ".mp4",
+  "video/webm": ".webm",
+  "video/quicktime": ".mov",
+};
+
 const makeSlug = customAlphabet("23456789abcdefghjkmnpqrstuvwxyz", 10);
+
+const MAX_UPLOAD_BYTES = Math.max(PROOF_MAX_IMAGE_BYTES, PROOF_MAX_VIDEO_BYTES);
+
+const detectTypeFromMime = (mime) => {
+  if (PHOTO_MIME.has(mime)) return "photo";
+  if (VIDEO_MIME.has(mime)) return "video";
+  return null;
+};
+
+const derivePaths = (storageKey) => {
+  const parts = storageKey.split("/");
+  const originalIndex = parts.indexOf("original");
+  const baseParts = originalIndex === -1 ? parts.slice(0, -1) : parts.slice(0, originalIndex);
+  const filename = parts[parts.length - 1] || "";
+  const stem = filename.includes(".") ? filename.slice(0, filename.lastIndexOf(".")) : filename;
+  const root = baseParts.join("/");
+  return { root, stem };
+};
 
 const parseSha = (value) => {
   if (typeof value !== "string" || value.length !== 64 || /[^a-f0-9]/i.test(value)) return null;
@@ -44,7 +82,14 @@ const parseSha = (value) => {
 
 const encodeSha = (buffer) => buffer.toString("hex");
 
+const streamToBuffer = async (stream) => {
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  return Buffer.concat(chunks);
+};
+
 const baseAssetUrl = (key) => {
+  if (CDN_PUBLIC_BASE) return `${CDN_PUBLIC_BASE.replace(/\/$/, "")}/${key}`;
   if (PUBLIC_ASSET_BASE) return `${PUBLIC_ASSET_BASE.replace(/\/$/, "")}/${key}`;
   const encoded = key.split("/").map(encodeURIComponent).join("/");
   return `/api/proofs/assets/${encoded}`;
@@ -99,6 +144,7 @@ const presentProof = (row, assets) => ({
   updatedAt: row.updated_at,
   width: row.width,
   height: row.height,
+  durationMs: row.duration_ms,
   sizeBytes: row.size_bytes,
   assets: assets.reduce((acc, asset) => {
     acc[asset.kind] = {
@@ -126,6 +172,11 @@ const latestProofForDare = db.prepare(
    ORDER BY coalesce(published_at, updated_at) DESC LIMIT 1`
 );
 const assetsForProof = db.prepare("SELECT * FROM proof_assets WHERE proof_id = ?");
+const deleteAssetKind = db.prepare("DELETE FROM proof_assets WHERE proof_id = ? AND kind = ?");
+const insertAssetStmt = db.prepare(
+  `INSERT INTO proof_assets (id, proof_id, kind, storage_key, mime, size_bytes, sha256, metadata)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+);
 
 const dareSummary = (row) =>
   row
@@ -144,11 +195,15 @@ export const registerProofRoutes = (app, { getIp, rateLimit, emit }) => {
   router.post("/api/proofs/presign", (req, res) => {
     if (!ensureFeature(res)) return;
     const { dareId, type, mime, sizeBytes, sha256 } = req.body || {};
-    if (type !== "photo") return res.status(400).json({ error: "Invalid type" });
+    if (type !== "photo" && type !== "video") return res.status(400).json({ error: "Invalid type" });
+    if (type === "video" && !FEATURE_VIDEO_PROOFS) return res.status(404).json({ error: "Not found" });
     if (typeof dareId !== "string" || !dareId) return res.status(400).json({ error: "Invalid dare" });
-    if (!ALLOWED_MIME.has(mime)) return res.status(400).json({ error: "Invalid mime" });
+    const mimeType = typeof mime === "string" ? mime.toLowerCase() : "";
+    const expectedMimeSet = type === "video" ? VIDEO_MIME : PHOTO_MIME;
+    if (!expectedMimeSet.has(mimeType)) return res.status(400).json({ error: "Invalid mime" });
     const size = Number(sizeBytes);
-    if (!Number.isFinite(size) || size <= 0 || size > PROOF_MAX_IMAGE_BYTES)
+    const maxBytes = type === "video" ? PROOF_MAX_VIDEO_BYTES : PROOF_MAX_IMAGE_BYTES;
+    if (!Number.isFinite(size) || size <= 0 || size > maxBytes)
       return res.status(400).json({ error: "Invalid size" });
     const hash = parseSha(sha256);
     if (!hash) return res.status(400).json({ error: "Invalid sha" });
@@ -157,7 +212,8 @@ export const registerProofRoutes = (app, { getIp, rateLimit, emit }) => {
     if (dare.status !== "resolved") return res.status(409).json({ error: "Dare not resolved" });
     const ip = getIp(req);
     if (!rateLimit(`${ip}:proof-presign`)) return res.status(429).json({ error: "Rate limited" });
-    const ext = EXTENSIONS[mime];
+    const extMap = type === "video" ? VIDEO_EXTENSIONS : PHOTO_EXTENSIONS;
+    const ext = extMap[mimeType];
     const now = new Date();
     const year = now.getUTCFullYear();
     const month = String(now.getUTCMonth() + 1).padStart(2, "0");
@@ -172,9 +228,9 @@ export const registerProofRoutes = (app, { getIp, rateLimit, emit }) => {
     ).run(tokenId, dareId, key, hash, size, mime, expires.toISOString());
     if (STORAGE_IS_DIRECT) {
       storage
-        .getUploadTarget(key, mime, 600)
+        .getUploadTarget(key, mimeType, 600)
         .then(({ url, headers }) => {
-          res.json({ key, url, headers, maxBytes: PROOF_MAX_IMAGE_BYTES });
+          res.json({ key, url, headers, maxBytes });
         })
         .catch((err) => {
           db.prepare("DELETE FROM proof_upload_tokens WHERE id = ?").run(tokenId);
@@ -186,15 +242,15 @@ export const registerProofRoutes = (app, { getIp, rateLimit, emit }) => {
     res.json({
       key,
       url: `/api/proofs/upload/${tokenId}`,
-      headers: { "Content-Type": mime, "Content-Length": String(size) },
-      maxBytes: PROOF_MAX_IMAGE_BYTES,
+      headers: { "Content-Type": mimeType, "Content-Length": String(size) },
+      maxBytes,
     });
   });
 
   if (!STORAGE_IS_DIRECT) {
     router.put(
       "/api/proofs/upload/:token",
-      raw({ type: () => true, limit: PROOF_MAX_IMAGE_BYTES }),
+      raw({ type: () => true, limit: MAX_UPLOAD_BYTES }),
       (req, res) => {
         if (!ensureFeature(res)) return;
         const token = req.params.token;
@@ -229,8 +285,11 @@ export const registerProofRoutes = (app, { getIp, rateLimit, emit }) => {
   router.post("/api/dares/:id/proofs", async (req, res) => {
     if (!ensureFeature(res)) return;
     const { key, sha256, type } = req.body || {};
-    if (type !== "photo") return res.status(400).json({ error: "Invalid type" });
+    if (type !== "photo" && type !== "video") return res.status(400).json({ error: "Invalid type" });
+    if (type === "video" && !FEATURE_VIDEO_PROOFS) return res.status(404).json({ error: "Not found" });
     if (typeof key !== "string" || !key.startsWith("proofs/")) return res.status(400).json({ error: "Invalid key" });
+    const ip = getIp(req);
+    if (!rateLimit(`${ip}:proof-finalize`)) return res.status(429).json({ error: "Rate limited" });
     const hash = parseSha(sha256);
     if (!hash) return res.status(400).json({ error: "Invalid sha" });
     const token = readToken(key);
@@ -239,12 +298,18 @@ export const registerProofRoutes = (app, { getIp, rateLimit, emit }) => {
     if (token.used_at) return res.status(409).json({ error: "Already finalized" });
     if (Date.now() > Date.parse(token.expires_at)) return res.status(410).json({ error: "Upload expired" });
     if (!STORAGE_IS_DIRECT && !token.uploaded_at) return res.status(409).json({ error: "Not uploaded" });
+    const tokenMime = typeof token.mime === "string" ? token.mime.toLowerCase() : "";
+    const tokenType = detectTypeFromMime(tokenMime);
+    if (!tokenType) return res.status(415).json({ error: "Unsupported mime" });
+    if (tokenType !== type) return res.status(400).json({ error: "Type mismatch" });
     const dare = db.prepare("SELECT * FROM dares WHERE id = ?").get(req.params.id);
     if (!dare) return res.status(404).json({ error: "Dare not found" });
     if (dare.status !== "resolved") return res.status(409).json({ error: "Dare not resolved" });
     const assetStat = await statObject(key);
     if (!assetStat.exists) return res.status(404).json({ error: "Asset missing" });
     if (assetStat.size !== token.size_bytes) return res.status(422).json({ error: "Size mismatch" });
+    const limitBytes = tokenType === "video" ? PROOF_MAX_VIDEO_BYTES : PROOF_MAX_IMAGE_BYTES;
+    if (assetStat.size > limitBytes) return res.status(413).json({ error: "File too large" });
     let computed;
     try {
       const stream = await openReadStream(key);
@@ -254,18 +319,64 @@ export const registerProofRoutes = (app, { getIp, rateLimit, emit }) => {
       return res.status(500).json({ error: "Storage error" });
     }
     if (!computed.equals(hash) || !computed.equals(token.sha256)) return res.status(422).json({ error: "Checksum mismatch" });
+    let durationMs = null;
+    let width = null;
+    let height = null;
+    if (tokenType === "video") {
+      let workspace;
+      try {
+        workspace = await createWorkspace();
+        const ext = VIDEO_EXTENSIONS[tokenMime] || ".mp4";
+        const tempPath = await workspace.pull(key, "original" + ext);
+        const probe = await probeVideo(tempPath);
+        durationMs = probe.durationMs || null;
+        let w = probe.width || null;
+        let h = probe.height || null;
+        if (probe.rotation && Math.abs(probe.rotation) % 180 === 90) {
+          const swap = w;
+          w = h;
+          h = swap;
+        }
+        width = w;
+        height = h;
+      } catch (err) {
+        if (err?.code === "VIDEO_TOO_LONG") {
+          return res.status(422).json({ error: "Video exceeds duration limit" });
+        }
+        console.error("video probe error", err);
+        return res.status(500).json({ error: "Video probe failed" });
+      } finally {
+        try {
+          await workspace?.cleanup();
+        } catch {
+        }
+      }
+    }
     const proofId = randomUUID();
     const slug = makeSlug();
     db.exec("BEGIN");
     try {
       db.prepare(
-        `INSERT INTO proofs (id, slug, dare_id, uploader_id, type, storage_key, sha256, size_bytes, moderation, visibility, watermark)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'unlisted', ?)`
-      ).run(proofId, slug, req.params.id, req.anonId || null, type, key, computed, assetStat.size, PROOF_WATERMARK ? 1 : 0);
+        `INSERT INTO proofs (id, slug, dare_id, uploader_id, type, storage_key, sha256, width, height, duration_ms, size_bytes, moderation, visibility, watermark)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'unlisted', ?)`
+      ).run(
+        proofId,
+        slug,
+        req.params.id,
+        req.anonId || null,
+        type,
+        key,
+        computed,
+        width,
+        height,
+        durationMs,
+        assetStat.size,
+        PROOF_WATERMARK ? 1 : 0,
+      );
       db.prepare(
-        `INSERT INTO proof_assets (id, proof_id, kind, storage_key, mime, size_bytes, sha256)
-         VALUES (?, ?, 'original', ?, ?, ?, ?)`
-      ).run(randomUUID(), proofId, key, token.mime, assetStat.size, computed);
+        `INSERT INTO proof_assets (id, proof_id, kind, storage_key, mime, size_bytes, sha256, metadata)
+         VALUES (?, ?, 'original', ?, ?, ?, ?, NULL)`
+      ).run(randomUUID(), proofId, key, tokenMime, assetStat.size, computed);
       db.prepare("UPDATE proof_upload_tokens SET used_at = datetime('now') WHERE id = ?").run(token.id);
       db.exec("COMMIT");
     } catch (err) {
@@ -283,6 +394,12 @@ export const registerProofRoutes = (app, { getIp, rateLimit, emit }) => {
     if (!["public", "unlisted"].includes(visibility)) return res.status(400).json({ error: "Invalid visibility" });
     const proof = proofById.get(req.params.id);
     if (!proof) return res.status(404).json({ error: "Not found" });
+    if (visibility === "public" && proof.moderation !== "approved") {
+      return res.status(409).json({ error: "Proof not approved" });
+    }
+    if (visibility === "unlisted" && FEATURE_PROOF_MODERATION && proof.moderation === "rejected") {
+      return res.status(409).json({ error: "Proof rejected" });
+    }
     const tags = normalizeHashtags(hashtags);
     const publishAt = visibility === "public" ? new Date().toISOString() : proof.published_at;
     db.prepare(
@@ -292,6 +409,112 @@ export const registerProofRoutes = (app, { getIp, rateLimit, emit }) => {
     const updated = proofById.get(proof.id);
     const assets = assetsForProof.all(proof.id);
     emit(updated.dare_id, "proof.published", { id: updated.id, visibility: updated.visibility });
+    res.json(presentProof(updated, assets));
+  });
+
+  router.post("/api/proofs/:id/blur", async (req, res) => {
+    if (!ensureFeature(res)) return;
+    if (!FEATURE_PROOF_BLUR) return res.status(404).json({ error: "Not found" });
+    const ip = getIp(req);
+    if (!rateLimit(`${ip}:proof-blur`)) return res.status(429).json({ error: "Rate limited" });
+    const proof = proofById.get(req.params.id);
+    if (!proof) return res.status(404).json({ error: "Not found" });
+    const masks = Array.isArray(req.body?.masks) ? req.body.masks : [];
+    if (!masks.length) return res.status(400).json({ error: "Invalid masks" });
+    const assets = assetsForProof.all(proof.id);
+    const posterAsset = assets.find((asset) => asset.kind === "poster");
+    if (!posterAsset) return res.status(409).json({ error: "Poster unavailable" });
+    let posterBuffer;
+    try {
+      posterBuffer = await streamToBuffer(await openReadStream(posterAsset.storage_key));
+    } catch (err) {
+      console.error("poster read error", err);
+      return res.status(500).json({ error: "Unable to load poster" });
+    }
+    let redactedPoster;
+    try {
+      redactedPoster = await applyBlurMasks(posterBuffer, masks);
+    } catch (err) {
+      console.error("poster blur error", err);
+      return res.status(500).json({ error: "Unable to apply blur" });
+    }
+    const posterMime = posterAsset.mime || "image/jpeg";
+    const redactedPosterKey = posterAsset.storage_key.replace(/(\.[^./]+)?$/, "-redacted$1");
+    const posterHash = crypto.createHash("sha256").update(redactedPoster).digest();
+    try {
+      await writeBuffer(redactedPosterKey, redactedPoster, posterMime);
+    } catch (err) {
+      console.error("poster write error", err);
+      return res.status(500).json({ error: "Unable to store redacted poster" });
+    }
+    deleteAssetKind.run(proof.id, "poster_redacted");
+    insertAssetStmt.run(randomUUID(), proof.id, "poster_redacted", redactedPosterKey, posterMime, redactedPoster.length, posterHash, JSON.stringify({ masks: masks.length }));
+    if (proof.type === "photo") {
+      const jpegAsset = assets.find((asset) => asset.kind === "jpeg");
+      if (jpegAsset) {
+        try {
+          const jpegBuffer = await streamToBuffer(await openReadStream(jpegAsset.storage_key));
+          const redactedJpeg = await applyBlurMasks(jpegBuffer, masks);
+          const jpegMime = jpegAsset.mime || "image/jpeg";
+          const jpegKey = jpegAsset.storage_key.replace(/(\.[^./]+)?$/, "-redacted$1");
+          const jpegHash = crypto.createHash("sha256").update(redactedJpeg).digest();
+          await writeBuffer(jpegKey, redactedJpeg, jpegMime);
+          deleteAssetKind.run(proof.id, "jpeg_redacted");
+          insertAssetStmt.run(randomUUID(), proof.id, "jpeg_redacted", jpegKey, jpegMime, redactedJpeg.length, jpegHash, JSON.stringify({ masks: masks.length }));
+        } catch (err) {
+          console.error("jpeg blur error", err);
+          return res.status(500).json({ error: "Unable to apply blur" });
+        }
+      }
+    }
+    const refreshed = proofById.get(proof.id);
+    const refreshedAssets = assetsForProof.all(proof.id);
+    emit(proof.dare_id, "proof.redacted", { id: proof.id });
+    res.json(presentProof(refreshed, refreshedAssets));
+  });
+
+  router.post("/api/admin/moderation/:id", (req, res) => {
+    if (!ensureFeature(res)) return;
+    if (!ADMIN_API_TOKEN) return res.status(403).json({ error: "Admin token not configured" });
+    const token = req.headers["x-admin-token"];
+    if (token !== ADMIN_API_TOKEN) return res.status(403).json({ error: "Forbidden" });
+    const { action, reason } = req.body || {};
+    if (action !== "approve" && action !== "reject") return res.status(400).json({ error: "Invalid action" });
+    const proof = proofById.get(req.params.id);
+    if (!proof) return res.status(404).json({ error: "Not found" });
+    const reasonText = typeof reason === "string" ? reason.trim().slice(0, 1024) : null;
+    const nowIso = new Date().toISOString();
+    db.exec("BEGIN");
+    try {
+      if (action === "approve") {
+        db.prepare(
+          `UPDATE proofs SET moderation = 'approved', updated_at = datetime('now') WHERE id = ?`
+        ).run(proof.id);
+        db.prepare(
+          `INSERT INTO moderation_reviews (id, proof_id, status, reason, created_at, reviewed_at, reviewer_id)
+           VALUES (?, ?, 'approved', ?, ?, ?, NULL)
+           ON CONFLICT(proof_id) DO UPDATE SET status = 'approved', reason = excluded.reason, reviewed_at = excluded.reviewed_at`
+        ).run(randomUUID(), proof.id, reasonText, nowIso, nowIso);
+      } else {
+        db.prepare(
+          `UPDATE proofs SET moderation = 'rejected', visibility = 'private', updated_at = datetime('now') WHERE id = ?`
+        ).run(proof.id);
+        db.prepare(
+          `INSERT INTO moderation_reviews (id, proof_id, status, reason, created_at, reviewed_at, reviewer_id)
+           VALUES (?, ?, 'rejected', ?, ?, ?, NULL)
+           ON CONFLICT(proof_id) DO UPDATE SET status = 'rejected', reason = excluded.reason, reviewed_at = excluded.reviewed_at`
+        ).run(randomUUID(), proof.id, reasonText, nowIso, nowIso);
+      }
+      db.exec("COMMIT");
+    } catch (err) {
+      db.exec("ROLLBACK");
+      console.error("moderation update error", err);
+      return res.status(500).json({ error: "Moderation update failed" });
+    }
+    const updated = proofById.get(proof.id);
+    const assets = assetsForProof.all(proof.id);
+    const eventType = action === "approve" ? "proof.moderation_approved" : "proof.moderation_rejected";
+    emit(updated.dare_id, eventType, { id: updated.id, moderation: updated.moderation });
     res.json(presentProof(updated, assets));
   });
 
@@ -359,7 +582,13 @@ export const registerProofRoutes = (app, { getIp, rateLimit, emit }) => {
     if (!proof || proof.visibility === "private") return res.status(404).send("Not found");
     const dare = dareForProof.get(proof.dare_id);
     const assets = assetsForProof.all(proof.id);
-    const poster = assets.find((row) => row.kind === "poster") || assets.find((row) => row.kind === "thumb640") || assets.find((row) => row.kind === "jpeg") || assets[0];
+    const poster =
+      assets.find((row) => row.kind === "poster_redacted") ||
+      assets.find((row) => row.kind === "poster") ||
+      assets.find((row) => row.kind === "jpeg_redacted") ||
+      assets.find((row) => row.kind === "thumb640") ||
+      assets.find((row) => row.kind === "jpeg") ||
+      assets[0];
     const posterUrl = poster ? baseAssetUrl(poster.storage_key) : "";
     const captionBase = ["#WhatAreTheOdds", "#DareAccepted"];
     if (dare?.category) {

@@ -1,16 +1,17 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import supertest from "supertest";
 import os from "os";
 import path from "path";
 import { promises as fs } from "fs";
 import crypto from "crypto";
 import sharp from "sharp";
-import { processPendingProofs } from "../src/workers/proofProcessor.js";
 
 let app;
 let db;
 let serverInstance;
 let tempRoot;
+let processPendingProofs;
+let videoModule;
 
 const csrfToken = "test-csrf";
 const anonId = "anon-test";
@@ -76,11 +77,21 @@ beforeAll(async () => {
   tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "proofs-"));
   process.env.FEATURE_LINK_DARES = "true";
   process.env.FEATURE_PROOFS = "true";
+  process.env.FEATURE_VIDEO_PROOFS = "true";
+  process.env.FEATURE_PROOF_MODERATION = "true";
+  process.env.FEATURE_PROOF_BLUR = "true";
+  process.env.FEATURE_LEADERBOARDS = "false";
+  process.env.FEATURE_SHARING = "true";
   process.env.STORAGE_DRIVER = "disk";
   process.env.DISK_ROOT = tempRoot;
   process.env.DATABASE_URL = ":memory:";
+  process.env.BASE_URL = "http://localhost:3000";
+  process.env.SHARE_BASE_URL = "http://localhost:3000";
+  process.env.ADMIN_API_TOKEN = "admin-secret";
   ({ default: app } = await import("../src/app.js"));
   ({ default: db } = await import("../src/db.js"));
+  ({ processPendingProofs } = await import("../src/workers/proofProcessor.js"));
+  videoModule = await import("../src/media/video.js");
   serverInstance = app.listen(0);
 });
 
@@ -156,6 +167,7 @@ describe("proof lifecycle", () => {
         "Cookie": baseCookies,
         "Content-Type": "image/png",
         "Content-Length": String(image.length),
+        "X-CSRF-Token": csrfToken,
       })
       .send(image);
     expect(upload.status).toBe(204);
@@ -215,5 +227,109 @@ describe("proof lifecycle", () => {
 
     const afterDelete = await request.get(`/api/proofs/${proofId}`).set("Cookie", baseCookies);
     expect(afterDelete.status).toBe(404);
+  }, 20000);
+});
+
+describe("video proof lifecycle", () => {
+  it("processes short video and enforces moderation gate", async () => {
+    const prevVideoFlag = process.env.FEATURE_VIDEO_PROOFS;
+    const prevModerationFlag = process.env.FEATURE_PROOF_MODERATION;
+    process.env.FEATURE_VIDEO_PROOFS = "true";
+    process.env.FEATURE_PROOF_MODERATION = "true";
+    const request = supertest(app);
+    const dare = await createDare(request);
+    const token = new URL(dare.inviteUrl).searchParams.get("t");
+    await resolveDare(request, dare.dareId, token);
+
+    const videoBuffer = Buffer.from("fake-video-data");
+    const hash = crypto.createHash("sha256").update(videoBuffer).digest("hex");
+
+    const probeSpy = vi.spyOn(videoModule, "probeVideo").mockResolvedValue({
+      durationMs: 8000,
+      width: 640,
+      height: 360,
+      rotation: 0,
+    });
+    const buildSpy = vi.spyOn(videoModule, "buildVideoDerivatives").mockImplementation(async ({ workspace }) => {
+      const posterBuffer = await sharp({
+        create: { width: 640, height: 360, channels: 3, background: { r: 45, g: 115, b: 210 } },
+      })
+        .jpeg()
+        .toBuffer();
+      const mp4Path = workspace.pathFor("proof.mp4");
+      const webmPath = workspace.pathFor("proof.webm");
+      await fs.writeFile(mp4Path, Buffer.from("mp4-output"));
+      await fs.writeFile(webmPath, Buffer.from("webm-output"));
+      return {
+        mp4Path,
+        webmPath,
+        posterBuffer,
+        gifBuffer: null,
+        width: 640,
+        height: 360,
+      };
+    });
+
+    const presign = await request
+      .post("/api/proofs/presign")
+      .set({ "Cookie": baseCookies, "X-CSRF-Token": csrfToken })
+      .send({
+        dareId: dare.dareId,
+        type: "video",
+        mime: "video/mp4",
+        sizeBytes: videoBuffer.length,
+        sha256: hash,
+      });
+    expect(presign.status).toBe(200);
+
+    const uploadUrl = new URL(presign.body.url, "http://localhost");
+    const upload = await request
+      .put(uploadUrl.pathname)
+      .set({
+        "Cookie": baseCookies,
+        "Content-Type": "video/mp4",
+        "Content-Length": String(videoBuffer.length),
+        "X-CSRF-Token": csrfToken,
+      })
+      .send(videoBuffer);
+    expect(upload.status).toBe(204);
+
+    const finalize = await request
+      .post(`/api/dares/${dare.dareId}/proofs`)
+      .set({ "Cookie": baseCookies, "X-CSRF-Token": csrfToken })
+      .send({ key: presign.body.key, sha256: hash, type: "video" });
+    expect(finalize.status).toBe(201);
+
+    const proofId = finalize.body.proofId;
+
+    const prePublish = await request
+      .post(`/api/proofs/${proofId}/publish`)
+      .set({ "Cookie": baseCookies, "X-CSRF-Token": csrfToken })
+      .send({ visibility: "public" });
+    expect(prePublish.status).toBe(409);
+
+    await processPendingProofs();
+
+    const proof = db.prepare("SELECT * FROM proofs WHERE id = ?").get(proofId);
+    expect(proof.type).toBe("video");
+    expect(proof.duration_ms).toBe(8000);
+
+    const assetKinds = db
+      .prepare("SELECT kind FROM proof_assets WHERE proof_id = ? ORDER BY kind")
+      .all(proofId)
+      .map((row) => row.kind)
+      .sort();
+    expect(assetKinds).toEqual(["mp4", "original", "poster", "webm"].sort());
+
+    const publish = await request
+      .post(`/api/proofs/${proofId}/publish`)
+      .set({ "Cookie": baseCookies, "X-CSRF-Token": csrfToken })
+      .send({ visibility: "public" });
+    expect(publish.status).toBe(200);
+
+    probeSpy.mockRestore();
+    buildSpy.mockRestore();
+    process.env.FEATURE_VIDEO_PROOFS = prevVideoFlag;
+    process.env.FEATURE_PROOF_MODERATION = prevModerationFlag;
   }, 20000);
 });

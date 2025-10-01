@@ -87,3 +87,49 @@ export interface SharePayload {
   url: string;
   category?: string | null;
 }
+
+export type ProofType = 'photo' | 'video';
+export type ProofVisibility = 'private' | 'unlisted' | 'public';
+export type ProofModerationState = 'pending' | 'approved' | 'rejected';
+export type ProofAssetKind =
+  | 'original'
+  | 'jpeg'
+  | 'jpeg_redacted'
+  | 'thumb320'
+  | 'thumb640'
+  | 'thumb1280'
+  | 'poster'
+  | 'poster_redacted'
+  | 'mp4'
+  | 'webm'
+  | 'gif';
+
+export interface ProofAssetRecord {
+  key: string;
+  mime: string;
+  sizeBytes: number;
+  sha256: string;
+  url: string;
+}
+
+export interface ProofRecord {
+  id: string;
+  slug: string;
+  dareId: string;
+  type: ProofType;
+  visibility: ProofVisibility;
+  moderation: ProofModerationState;
+  caption: string | null;
+  hashtags: string[];
+  watermark: boolean;
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  width: number | null;
+  height: number | null;
+  durationMs: number | null;
+  sizeBytes: number;
+  assets: Partial<Record<ProofAssetKind, ProofAssetRecord>>;
+  publicUrl: string;
+}
+

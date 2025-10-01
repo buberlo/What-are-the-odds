@@ -92,7 +92,8 @@ spec:
               mountPath: /data/proofs
       volumes:
         - name: proof-storage
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: proof-storage
 ---
 apiVersion: v1
 kind: Service
@@ -109,6 +110,219 @@ spec:
       port: 80
       targetPort: 8080
 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: what-are-the-odds-ws
+  labels:
+    app: what-are-the-odds-ws
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: what-are-the-odds-ws
+  template:
+    metadata:
+      labels:
+        app: what-are-the-odds-ws
+    spec:
+      containers:
+        - name: ws
+          image: localhost:32000/what-are-the-odds-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          envFrom:
+            - configMapRef:
+                name: what-are-the-odds-api-config
+            - secretRef:
+                name: what-are-the-odds-api-secrets
+          volumeMounts:
+            - name: proof-storage
+              mountPath: /data/proofs
+      volumes:
+        - name: proof-storage
+          persistentVolumeClaim:
+            claimName: proof-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: what-are-the-odds-ws
+  labels:
+    app: what-are-the-odds-ws
+spec:
+  selector:
+    app: what-are-the-odds-ws
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: what-are-the-odds-proof-worker
+  labels:
+    app: what-are-the-odds-proof-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: what-are-the-odds-proof-worker
+  template:
+    metadata:
+      labels:
+        app: what-are-the-odds-proof-worker
+    spec:
+      containers:
+        - name: proof-worker
+          image: localhost:32000/what-are-the-odds-api:latest
+          imagePullPolicy: Always
+          command:
+            - /bin/sh
+            - -c
+            - "while true; do node src/workers/proofProcessor.js; sleep ${PROOF_WORKER_INTERVAL:-30}; done"
+          envFrom:
+            - configMapRef:
+                name: what-are-the-odds-api-config
+            - secretRef:
+                name: what-are-the-odds-api-secrets
+          volumeMounts:
+            - name: proof-storage
+              mountPath: /data/proofs
+      volumes:
+        - name: proof-storage
+          persistentVolumeClaim:
+            claimName: proof-storage
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: what-are-the-odds-api-hpa
+  labels:
+    app: what-are-the-odds-api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: what-are-the-odds-api
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: what-are-the-odds-ws-hpa
+  labels:
+    app: what-are-the-odds-ws
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: what-are-the-odds-ws
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: what-are-the-odds-worker-hpa
+  labels:
+    app: what-are-the-odds-proof-worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: what-are-the-odds-proof-worker
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Pods
+      pods:
+        metric:
+          name: queue_depth
+        target:
+          type: AverageValue
+          averageValue: "10"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: what-are-the-odds-proof-lifecycle
+  labels:
+    app: what-are-the-odds-proof-lifecycle
+spec:
+  schedule: "0 4 * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            app: what-are-the-odds-proof-lifecycle
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: lifecycle
+              image: localhost:32000/what-are-the-odds-api:latest
+              imagePullPolicy: Always
+              command:
+                - node
+                - src/workers/proofLifecycle.js
+              envFrom:
+                - configMapRef:
+                    name: what-are-the-odds-api-config
+                - secretRef:
+                    name: what-are-the-odds-api-secrets
+              volumeMounts:
+                - name: proof-storage
+                  mountPath: /data/proofs
+          volumes:
+            - name: proof-storage
+              persistentVolumeClaim:
+                claimName: proof-storage
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -118,12 +332,38 @@ metadata:
 data:
   FEATURE_LINK_DARES: "1"
   FEATURE_PROOFS: "1"
+  FEATURE_VIDEO_PROOFS: "1"
+  FEATURE_PROOF_MODERATION: "1"
+  FEATURE_PROOF_BLUR: "1"
+  FEATURE_REALTIME_WS: "1"
+  FEATURE_SECURITY_HARDENING: "1"
+  FEATURE_PERF_TELEM: "1"
   BASE_URL: "https://whate-are-the-odds.com"
   STORAGE_DRIVER: "disk"
   DISK_ROOT: "/data/proofs"
   PROOF_MAX_IMAGE_BYTES: "10485760"
+  PROOF_MAX_VIDEO_BYTES: "26214400"
+  PROOF_MAX_DURATION_MS: "10000"
   PROOF_WATERMARK: "1"
+  PROOF_LIFECYCLE_ORIGINAL_DAYS: "90"
+  PROOF_LIFECYCLE_PUBLIC_DAYS: "365"
+  FFMPEG_PATH: "/usr/bin/ffmpeg"
+  FFPROBE_PATH: "/usr/bin/ffprobe"
+  MODERATION_PROVIDER: "stub"
+  MODERATION_BLOCK_ON_FAIL: "1"
+  PROOF_WORKER_INTERVAL: "30"
   PUBLIC_ASSET_BASE: ""
+  CDN_PUBLIC_BASE: "https://cdn.what-are-the-odds.com"
+  REDIS_URL: "redis://redis:6379"
+  REALTIME_ALLOWED_ORIGINS: "https://what-are-the-odds.com,https://www.what-are-the-odds.com"
+  REALTIME_PING_MS: "15000"
+  REALTIME_IDLE_TIMEOUT_MS: "120000"
+  WS_MAX_CONN_PER_IP: "50"
+  WS_MSG_RATE_PER_MIN: "240"
+  WS_BURST: "40"
+  TOKEN_ROTATION_MIN: "30"
+  TELEMETRY_ENDPOINT: ""
+  TELEMETRY_SAMPLE_RATE: "0.1"
   PORT: "8080"
 ---
 apiVersion: v1
@@ -135,11 +375,74 @@ metadata:
 type: Opaque
 stringData:
   INVITE_JWT_SECRET: ""
+  INVITE_JWT_SECRET_NEXT: ""
   S3_ENDPOINT: ""
   S3_REGION: "us-east-1"
   S3_BUCKET: ""
   S3_ACCESS_KEY: ""
   S3_SECRET_KEY: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          volumeMounts:
+            - mountPath: /data
+              name: redis-data
+      volumes:
+        - name: redis-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  labels:
+    app: redis
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+      name: redis
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: proof-storage
+  labels:
+    app: what-are-the-odds-storage
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 20Gi
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -149,6 +452,10 @@ metadata:
     cert-manager.io/cluster-issuer: letsencrypt-dns
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/from-to-www-redirect: "true"
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location ~* ^/api/proofs/upload/ {
+        client_max_body_size 30m;
+      }
 spec:
   ingressClassName: public
   tls:
@@ -161,6 +468,13 @@ spec:
       http:
         paths:
           - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: what-are-the-odds-api
+                port:
+                  number: 80
+          - path: /ws
             pathType: Prefix
             backend:
               service:
@@ -181,10 +495,48 @@ spec:
                 name: what-are-the-odds
                 port:
                   number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: what-are-the-odds-ws-canary
+  annotations:
+    nginx.ingress.kubernetes.io/canary: "true"
+    nginx.ingress.kubernetes.io/canary-weight: "10"
+spec:
+  ingressClassName: public
+  rules:
+    - host: whate-are-the-odds.com
+      http:
+        paths:
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: what-are-the-odds-ws
+                port:
+                  number: 80
+    - host: www.whate-are-the-odds.com
+      http:
+        paths:
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: what-are-the-odds-ws
+                port:
+                  number: 80
     - host: www.whate-are-the-odds.com
       http:
         paths:
           - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: what-are-the-odds-api
+                port:
+                  number: 80
+          - path: /ws
             pathType: Prefix
             backend:
               service:

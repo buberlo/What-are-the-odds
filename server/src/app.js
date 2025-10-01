@@ -4,15 +4,70 @@ import crypto from "crypto";
 import { SignJWT, jwtVerify } from "jose";
 import db from "./db.js";
 import { runMigrations } from "./migrations.js";
-import { BASE_URL, FEATURE_LINK_DARES, INVITE_JWT_SECRET } from "./config.js";
+import {
+  BASE_URL,
+  FEATURE_LINK_DARES,
+  INVITE_JWT_SECRET,
+  INVITE_JWT_SECRET_NEXT,
+  FEATURE_REALTIME_WS,
+  CDN_PUBLIC_BASE,
+  PUBLIC_ASSET_BASE,
+} from "./config.js";
 import { registerProofRoutes } from "./proofs.js";
 import { registerLeaderboardRoutes } from "./leaderboardRoutes.js";
 import { registerShareRoutes } from "./shareRoutes.js";
 import { randomUUID } from "crypto";
 import { URL } from "url";
+import { publishBus, subscribeBus } from "./realtime/bus.js";
+import { establishSession } from "./realtime/auth.js";
+import { emitTelemetry } from "./telemetry.js";
+
+const assetOrigins = [];
+const pushOrigin = (value) => {
+  if (!value) return;
+  try {
+    assetOrigins.push(new URL(value).origin);
+  } catch {}
+};
+pushOrigin(CDN_PUBLIC_BASE);
+pushOrigin(PUBLIC_ASSET_BASE);
+const connectSources = ["'self'", "https:", "http:", "blob:"];
+if (FEATURE_REALTIME_WS) connectSources.push("wss:");
+const mediaSources = new Set(["'self'", "blob:"]);
+for (const origin of assetOrigins) mediaSources.add(origin);
+const imgSources = new Set(["'self'", "data:", "blob:"]);
+for (const origin of assetOrigins) imgSources.add(origin);
 
 const app = express();
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        "img-src": Array.from(imgSources),
+        "media-src": Array.from(mediaSources),
+        "connect-src": connectSources,
+        "worker-src": ["'self'", "blob:"],
+      },
+    },
+    referrerPolicy: {
+      policy: "strict-origin-when-cross-origin",
+    },
+  })
+);
+app.use((req, res, next) => {
+  const start = process.hrtime.bigint();
+  res.on("finish", () => {
+    const elapsed = Number(process.hrtime.bigint() - start) / 1e6;
+    emitTelemetry("http", {
+      method: req.method,
+      path: req.originalUrl,
+      status: res.statusCode,
+      duration_ms: elapsed,
+    });
+  });
+  next();
+});
 app.use(express.json({ limit: "1mb" }));
 
 app.get("/healthz", (req, res) => {
@@ -23,6 +78,47 @@ runMigrations(db);
 
 const sseClients = new Map();
 const rateBuckets = new Map();
+
+const encoder = new TextEncoder();
+const fingerprint = (secret) =>
+  crypto.createHash("sha256").update(secret || "", "utf8").digest("hex").slice(0, 16);
+const inviteSecrets = [
+  INVITE_JWT_SECRET,
+  INVITE_JWT_SECRET_NEXT,
+].filter((value, index, list) => value && list.indexOf(value) === index);
+const inviteKeys = inviteSecrets.map((value) => ({ secret: value, kid: fingerprint(value) }));
+
+const broadcastEvents = [
+  "dare.created",
+  "dare.accepted",
+  "pick.submitted",
+  "dare.resolved",
+  "dare.expired",
+  "proof.uploaded",
+  "proof.processed",
+  "proof.published",
+  "proof.redacted",
+  "proof.taken_down",
+  "proof.moderation_pending",
+  "proof.approved",
+  "proof.rejected",
+  "proof.moderation_approved",
+  "proof.moderation_rejected",
+  "proof.original_archived",
+  "proof.asset_pruned",
+];
+
+const forwardSse = (type, message) => {
+  if (!message || message.dareId == null) return;
+  const listeners = sseClients.get(message.dareId);
+  if (!listeners || !listeners.size) return;
+  const data = `event: ${type}\ndata: ${JSON.stringify(message.payload || {})}\n\n`;
+  for (const res of listeners) res.write(data);
+};
+
+for (const evt of broadcastEvents) {
+  subscribeBus(evt, (msg) => forwardSse(evt, msg));
+}
 
 function getCookies(req) {
   const header = req.headers.cookie;
@@ -90,19 +186,27 @@ function getIp(req) {
 
 async function signInvite(payload, exp) {
   const epochSeconds = Math.floor(Date.parse(exp) / 1000);
+  const primary = inviteKeys[0];
   return await new SignJWT(payload)
-    .setProtectedHeader({ alg: "HS256" })
+    .setProtectedHeader({ alg: "HS256", kid: primary.kid })
     .setIssuedAt()
     .setIssuer(BASE_URL)
     .setAudience("invite")
     .setExpirationTime(epochSeconds)
-    .sign(new TextEncoder().encode(INVITE_JWT_SECRET));
+    .sign(encoder.encode(primary.secret));
 }
 
 async function verifyInvite(token) {
-  const { payload } = await jwtVerify(token, new TextEncoder().encode(INVITE_JWT_SECRET), {
-    audience: "invite",
-  });
+  const { payload } = await jwtVerify(
+    token,
+    async ({ kid }) => {
+      let entry = kid ? inviteKeys.find((item) => item.kid === kid) : null;
+      if (!entry) entry = inviteKeys[0];
+      if (!entry) throw new Error("invalid key");
+      return encoder.encode(entry.secret);
+    },
+    { audience: "invite" }
+  );
   if (!payload || payload.v !== 1) throw new Error("invalid token");
   return payload;
 }
@@ -147,11 +251,7 @@ function emitEvent(dareId, type, payload) {
   db.prepare(
     "INSERT INTO events (id, dare_id, type, payload, at) VALUES (@id, @dare_id, @type, @payload, @at)"
   ).run(event);
-  const listeners = sseClients.get(dareId);
-  if (listeners) {
-    const data = `event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`;
-    for (const res of listeners) res.write(data);
-  }
+  publishBus(type, { dareId, payload, id: event.id, at: event.at });
 }
 
 function emitSystem(type, payload) {
@@ -165,6 +265,7 @@ function emitSystem(type, payload) {
   db
     .prepare("INSERT INTO events (id, dare_id, type, payload, at) VALUES (@id, @dare_id, @type, @payload, @at)")
     .run(event);
+  publishBus(type, { dareId: null, payload: payload || {}, id: event.id, at: event.at });
 }
 
 function checkExpiry(dare) {
@@ -181,6 +282,10 @@ function checkExpiry(dare) {
 
 app.use(ensureCsrfCookie);
 app.use(ensureAnonId);
+app.use((req, res, next) => {
+  establishSession(req, res);
+  next();
+});
 app.use(csrf);
 
 app.post("/api/dares", requireFlag, async (req, res) => {

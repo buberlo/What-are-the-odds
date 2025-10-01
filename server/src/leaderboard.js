@@ -98,7 +98,11 @@ const toIso = (value) => new Date(value).toISOString();
 
 export const computeLeaderboardEntries = ({ fromTs, toTs, category, withProofs, limit }) => {
   const categoryFilter = normalizeCategoryFilter(category);
-  const rows = resolvedStmt.all(fromTs, toTs).filter((row) => filterCategory(row.category, categoryFilter));
+  const start = new Date(fromTs).toISOString();
+  const end = new Date(toTs).toISOString();
+  const rows = resolvedStmt
+    .all(start, end)
+    .filter((row) => filterCategory(row.category, categoryFilter));
   if (!rows.length) return { entries: [], dareIds: [] };
   const dareIds = Array.from(new Set(rows.map((row) => row.dare_id)));
   const proofs = proofsForDares(dareIds);
